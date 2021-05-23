@@ -135,6 +135,9 @@ class Text:
     self.page_paths = list()
     self.page_texts = list()
     self.page_metadata = list()
+    self.page_orientations = list()
+    self.page_languages = list()
+    self.page_mean_confidences = list()
   def save_ocr(self):
     """Saves the OCR output to a CSV in the top level of the working directory
     of this Text object."""
@@ -149,7 +152,10 @@ class Text:
       self._analyze_page(path)
     pd.DataFrame(data={
         'page_path': self.page_paths,
-        'page_text': self.page_texts
+        'page_text': self.page_texts,
+        'page_orientation': self.page_orientations,
+        'page_language': self.page_languages,
+        'page_mean_confidence': self.page_mean_confidences,
     }).to_csv(os.path.join(self.out, 'page.csv'))
     self.save()
   def _save_images(self):
@@ -173,10 +179,12 @@ class Text:
     # might as well go straight to OSD (orientation and script detection).
     try:
       language_used = self.languages.items[0]
+      orientation_used = 0
       metadata = data(image, language_used)
       if mean_conf(metadata) < self.coarse_thresh:
         if self.verbose: print('First guess at orientation + language failed.')
-        image, language_used, metadata = self._osd_assisted_analysis(image)
+        image, orientation_used, language_used, metadata = \
+            self._osd_assisted_analysis(image)
         if metadata is None: return
       language = detected_language(data_to_string(metadata.text))
       if language != language_used:
@@ -184,6 +192,7 @@ class Text:
           print('Retrying with detected language. Language={}'.format(language))
         metadata = data(image, language)
     except TesseractError as e:
+      language = None
       warnings.warn('Tesseract failed: ' + str(e))
       return
     if mean_conf(metadata) < self.coarse_thresh:
@@ -197,20 +206,24 @@ class Text:
     self.page_texts.append(data_to_string(
         metadata.corrected if 'corrected' in metadata.columns else metadata.text
     ))
+    self.page_orientations.append(orientation_used)
+    self.page_languages.append(language)
+    self.page_mean_confidences.append(mean_conf(metadata))
   def _osd_assisted_analysis(self, image):
-    """Returns the image, language, and metadata produced from
+    """Returns the image, orientation, language, and metadata produced from
     analyzing IMAGE with orientation and script detection.
-    Returns (None, None, None) if OSD fails to detect a supported script.
+    Returns (None, None, None, None) if OSD fails to detect a supported script.
     """
     osd_result = osd(image)
     image = image.rotate(osd_result['Orientation in degrees'])
     if osd_result['Script'] not in Text.languages_by_script:
       warnings.warn('OSD failed.')
-      return (None, None, None)
+      return (None, None, None, None)
     poss_languages = Text.languages_by_script[osd_result['Script']]
     for language in self.languages.items:
       if language in poss_languages:
-        return image, language, data(image, language)
+        return (image, osd_result['Orientation in degrees'], language,
+            data(image, language))
   def _correct(self, image, metadata, min_conf):
     """Adds a column to the metadata table METADATA that is the corrected form
     of the words given in its "text" column.
