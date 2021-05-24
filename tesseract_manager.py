@@ -10,7 +10,7 @@ import pytesseract
 from pytesseract import TesseractError
 from PIL import Image
 import os
-from pdf2image import convert_from_path
+import fitz
 import pandas as pd
 from io import StringIO
 import re
@@ -93,8 +93,15 @@ class Text:
       'la': 'lat',
       'fi': 'fin'
   }
+  # This is a hack: The justification is empirical, not theoretical. I have
+  # found that there exist at least some documents that can be processed with
+  # much greater accuracy if their images are scaled by a factor of 2. The cost
+  # is that the program runs significantly slower: It seems to be slowed by a
+  # constant factor of perhaps 2 or 3.
+  alternative_image_scale = 2
   def __init__(self, src, out,
                coarse_thresh=75, min_relative_conf=0,
+               image_area_thresh=0.5, text_len_thresh=100,
                languages=None, second_languages=None,
                verbose=False):
     """Initializes a Text object from the file specified at SRC.
@@ -110,6 +117,12 @@ class Text:
           orientation
     MIN_RELATIVE_CONF - the minimum confidence level for a particular word
           relative to the mean confidence level of the entire page
+    IMAGE_AREA_THRESH - the threshold proportion of page area that is
+          consumed by an image, beyond which the image must be taken into
+          acccount in the text extraction process
+    TEXT_LEN_THRESH - the threshold length of the text (in characters)
+          originally explicitly encoded in a PDF, beyond which the original text
+          may be taken into account in the text extraction process
     LANGUAGES - a WeightTracker instance with the expected languages weighted
           in accordance to their expected probabilities
     SECOND_LANGUAGES - a WeightTracker instance with the languages expected to
@@ -122,6 +135,8 @@ class Text:
     self.out = out
     self.coarse_thresh = coarse_thresh
     self.min_relative_conf = min_relative_conf
+    self.image_area_thresh = image_area_thresh
+    self.text_len_thresh = text_len_thresh
     self.languages = (
         WeightTracker(Text.global_possible_languages, presorted=True)
         if languages is None else languages
@@ -131,31 +146,28 @@ class Text:
         if second_languages is None else second_languages
     )
     self.verbose = verbose
-    self.images_dir = os.path.join(self.out, 'images')
-    self.page_paths = list()
-    self.page_texts = list()
-    self.page_metadata = list()
-    self.page_orientations = list()
+    self.texts = list()
+    self.metadata = list()
+    self.orientations = list()
     self.page_languages = list()
-    self.page_mean_confidences = list()
+    self.mean_confidences = list()
+    self.used_original_texts = list()
   def save_ocr(self):
     """Saves the OCR output to a CSV in the top level of the working directory
     of this Text object."""
-    self._save_images()
-    page_paths = os.listdir(self.images_dir)
-    page_paths.sort()
     t0 = time.time()
-    for i, path in enumerate(page_paths):
+    document = fitz.open(self.src)
+    for i, page in enumerate(document):
       if self.verbose:
         print('{} out of {} pages analyzed in {:.2f} seconds...'.format(
-            i, len(page_paths), time.time() - t0))
-      self._analyze_page(path)
+            i, len(document), time.time() - t0))
+      self._analyze_page(page)
     pd.DataFrame(data={
-        'page_path': self.page_paths,
-        'page_text': self.page_texts,
-        'page_orientation': self.page_orientations,
-        'page_language': self.page_languages,
-        'page_mean_confidence': self.page_mean_confidences,
+        'text': self.texts,
+        'orientation': self.orientations,
+        'language': self.page_languages,
+        'mean_confidence': self.mean_confidences,
+        'used_original_text': self.used_original_texts,
     }).to_csv(os.path.join(self.out, 'page.csv'))
     self.save()
   def _save_images(self):
@@ -167,58 +179,77 @@ class Text:
     text.
     """
     os.rmdir(self.images_dir)
-  def _analyze_page(self, path):
-    """Analyzes the page whose image is located at PATH and records the data
-    extracted from it. Does nothing if the page cannot be analyzed successfully.
+  def _analyze_page(self, page):
+    """Analyzes PAGE and records the data extracted from it. Does nothing if the
+    page cannot be analyzed successfully.
     """
-    image = Image.open(os.path.join(self.images_dir, path))
-    # The following line relies on the assumption that the primary language of
-    # our texts does not change very often and that most pages are oriented
-    # correctly. If every page were in a different language, the following line
-    # of code would give us a performance hit with very little benefit -- we
-    # might as well go straight to OSD (orientation and script detection).
-    try:
-      language_used = self.languages.items[0]
-      orientation_used = 0
-      metadata = data(image, language_used)
-      if mean_conf(metadata) < self.coarse_thresh:
-        if self.verbose: print('First guess at orientation + language failed.')
-        image, orientation_used, language_used, metadata = \
-            self._osd_assisted_analysis(image)
-        if metadata is None: return
-      language = detected_language(data_to_string(metadata.text))
-      if language != language_used:
-        if self.verbose:
-          print('Retrying with detected language. Language={}'.format(language))
-        metadata = data(image, language)
-    except TesseractError as e:
-      language = None
-      warnings.warn('Tesseract failed: ' + str(e))
-      return
-    if mean_conf(metadata) < self.coarse_thresh:
-      warnings.warn('Failed to analyze image.')
+    # Guarantee: metadata, orientation_used, language, used_original_text
+    # are defined after this branch statement.
+    original_text = page.get_text()
+    if total_image_area(page) / page.bound().getArea() < self.image_area_thresh:
+      metadata, orientation_used = None, None
+      language = detected_language(original_text)
+      self.texts.append(original_text)
+      self.mean_confidences.append(None)
+      used_original_text = True
     else:
-      self.languages.add_weight(language)
-      # WORD CORRECTION FEATURE DISABLED. TODO: fix the feature.
-      # self._correct(image, metadata, mean_conf(metadata)+self.min_relative_conf)
-    self.page_paths.append(path)
-    self.page_metadata.append(metadata)
-    self.page_texts.append(data_to_string(
-        metadata.corrected if 'corrected' in metadata.columns else metadata.text
-    ))
-    self.page_orientations.append(orientation_used)
+      metadata, orientation_used, language = self._run_ocr(
+          image_from_page(page, scale=self.alternative_image_scale),
+          (detected_language(original_text)
+           if len(original_text) >= self.text_len_thresh
+           else self.languages.items[0])
+      )
+      if mean_conf(metadata) < self.coarse_thresh:
+        warnings.warn('Failed to analyze image.')
+      else: pass
+        # WORD CORRECTION FEATURE DISABLED. TODO: fix the feature.
+        # self._correct(image, metadata, mean_conf(metadata)+self.min_relative_conf)
+      self.texts.append(data_to_string(
+          metadata.corrected if 'corrected' in metadata.columns else metadata.text
+      ))
+      self.mean_confidences.append(mean_conf(metadata))
+      used_original_text = False
+    self.languages.add_weight(language)
+    self.metadata.append(metadata)
+    self.orientations.append(orientation_used)
     self.page_languages.append(language)
-    self.page_mean_confidences.append(mean_conf(metadata))
+    self.used_original_texts.append(used_original_text)
+  def _run_ocr(self, image, language_guess):
+    """Returns metadata, orientation detected, and language detected from the
+    analysis of IMAGE. Returns (None, None, None) upon failure to extract text
+    from IMAGE.
+    IMAGE - the image to be analyzed
+    LANGUAGE_GUESS - the expected language of any text in IMAGE
+    """
+    orientation_used = 0
+    try:
+      metadata = data(image, language_guess)
+    except TesseractError as e:
+      warnings.warn('Tesseract failed: ' + str(e))
+      return (None, None, None)
+    if mean_conf(metadata) < self.coarse_thresh:
+      if self.verbose: print('First guess at orientation + language failed.')
+      try:
+        image, orientation_used, language_guess, metadata = \
+            self._osd_assisted_analysis(image)
+      except TesseractError as e:
+        warnings.warn('OCR failed: ' + str(e))
+    language = detected_language(data_to_string(metadata.text))
+    if language != language_guess:
+      if self.verbose:
+        print('Retrying with detected language. Language={}'.format(language))
+      metadata = data(image, language)
+    return (metadata, orientation_used, language)
   def _osd_assisted_analysis(self, image):
     """Returns the image, orientation, language, and metadata produced from
-    analyzing IMAGE with orientation and script detection.
-    Returns (None, None, None, None) if OSD fails to detect a supported script.
+    analyzing IMAGE with orientation and script detection. Throws TesseractError
+    or ManagerError upon failure.
     """
     osd_result = osd(image)
     image = image.rotate(osd_result['Orientation in degrees'])
     if osd_result['Script'] not in Text.languages_by_script:
-      warnings.warn('OSD failed.')
-      return (None, None, None, None)
+      raise ManagerError('The script detected by OSD, "{}", is not '
+          'supported.'.format(osd_result['Script']))
     poss_languages = Text.languages_by_script[osd_result['Script']]
     for language in self.languages.items:
       if language in poss_languages:
@@ -262,6 +293,8 @@ class Text:
     with open(os.path.join(self.out, 'analysis.pickle'), 'wb') as dbfile:
       pickle.dump(self, dbfile)
 
+class ManagerError(Exception): pass
+
 def detected_language(text, default='eng'):
   """Returns the detected language of TEXT, using the LangCode recognized by
   Tesseract (as described here:
@@ -279,8 +312,33 @@ def detected_language(text, default='eng'):
     pass
   return default
   
+def image_from_page(page, scale=1):
+  """Returns a PIL Image representation of PAGE, a fitz.Page object.
+  PAGE  - the page to be represented as an Image
+  SCALE - the proportion by which to scale the Image
+  """
+  pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
+  return Image.frombytes(
+      ("RGBA" if pix.alpha else "RGB"),
+      [pix.width, pix.height], pix.samples
+      )
+
+def total_image_area(page):
+  """Returns the total area (in pixels) consumed by images that appear in PAGE,
+  a fitz.Page object.
+  Does not account for possible overlapping between images.
+  """
+  return sum(
+      rect.getArea()
+      for image in page.get_images()
+      for rect in page.get_image_rects(image)
+      )
+
 def mean_conf(metadata):
-  """Returns the mean confidence by word of the OCR output given by METADATA."""
+  """Returns the mean confidence by word of the OCR output given by METADATA.
+  Returns 0 of METADATA is None.
+  """
+  if metadata is None: return 0
   return metadata.conf[metadata.conf >= 0].mean()
 
 def osd(image):
