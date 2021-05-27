@@ -65,9 +65,9 @@ class Text:
   languages_by_script = {
       'Latin': {'eng', 'tur', 'deu', 'fra', 'spa', 'nld', 'ita', 'dan', 'swe', 'fin'},
       'Arabic': {'ara'},
-      'Cyrillic': {'rus', 'ell'}, # Tesseract seems to recognize Greek as
-                                  # Cyrillic, so 'ell' is included here.
-                                  # This is an ugly and undesirable workaround.
+      'Cyrillic': {'rus'}, # Tesseract seems to recognize Greek as
+                           # Cyrillic.
+      'Greek': {'ell'},
       'Japanese': {'jpn'},
       'Japanese_vert': {'jpn'},
       'Han': {'chi_sim', 'chi_tra'},
@@ -98,7 +98,8 @@ class Text:
   # much greater accuracy if their images are scaled by a factor of 2. The cost
   # is that the program runs significantly slower: It seems to be slowed by a
   # constant factor of perhaps 2 or 3.
-  alternative_image_scale = 2
+  default_image_scale = 2
+  target_word_height = (14, 17)
   def __init__(self, src, out,
                coarse_thresh=75, min_relative_conf=0,
                image_area_thresh=0.5, text_len_thresh=100,
@@ -130,7 +131,6 @@ class Text:
     VERBOSE - whether detailed information should be printed by this Text
           instance
     """
-    os.mkdir(out)
     self.src = src
     self.out = out
     self.coarse_thresh = coarse_thresh
@@ -152,6 +152,7 @@ class Text:
     self.page_languages = list()
     self.mean_confidences = list()
     self.used_original_texts = list()
+    self.times = list()
   def save_ocr(self):
     """Saves the OCR output to a CSV in the top level of the working directory
     of this Text object."""
@@ -162,12 +163,14 @@ class Text:
         print('{} out of {} pages analyzed in {:.2f} seconds...'.format(
             i, len(document), time.time() - t0))
       self._analyze_page(page)
+    os.mkdir(self.out)
     pd.DataFrame(data={
         'text': self.texts,
         'orientation': self.orientations,
         'language': self.page_languages,
         'mean_confidence': self.mean_confidences,
         'used_original_text': self.used_original_texts,
+        'time': self.times,
     }).to_csv(os.path.join(self.out, 'page.csv'))
     self.save()
   def _save_images(self):
@@ -194,7 +197,7 @@ class Text:
       used_original_text = True
     else:
       metadata, orientation_used, language = self._run_ocr(
-          image_from_page(page, scale=self.alternative_image_scale),
+          image_from_page(page, scale=self.default_image_scale),
           (detected_language(original_text)
            if len(original_text) >= self.text_len_thresh
            else self.languages.items[0])
@@ -214,6 +217,7 @@ class Text:
     self.orientations.append(orientation_used)
     self.page_languages.append(language)
     self.used_original_texts.append(used_original_text)
+    self.times.append(time.time())
   def _run_ocr(self, image, language_guess):
     """Returns metadata, orientation detected, and language detected from the
     analysis of IMAGE. Returns (None, None, None) upon failure to extract text
@@ -230,9 +234,10 @@ class Text:
     if mean_conf(metadata) < self.coarse_thresh:
       if self.verbose: print('First guess at orientation + language failed.')
       try:
-        image, orientation_used, language_guess, metadata = \
-            self._osd_assisted_analysis(image)
-      except TesseractError as e:
+        result = self._osd_assisted_analysis(image)
+        if mean_conf(result[-1]) > mean_conf(metadata):
+            image, orientation_used, language_guess, metadata = result
+      except (TesseractError, ManagerError) as e:
         warnings.warn('OCR failed: ' + str(e))
     language = detected_language(data_to_string(metadata.text))
     if language != language_guess:
