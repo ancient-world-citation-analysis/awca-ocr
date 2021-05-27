@@ -98,7 +98,8 @@ class Text:
   # much greater accuracy if their images are scaled by a factor of 2. The cost
   # is that the program runs significantly slower: It seems to be slowed by a
   # constant factor of perhaps 2 or 3.
-  default_image_scale = 2
+  default_image_scale = 1.75
+  alternate_image_scales = (1, 2, 4)
   target_word_height = (14, 17)
   def __init__(self, src, out,
                coarse_thresh=75, min_relative_conf=0,
@@ -153,6 +154,7 @@ class Text:
     self.mean_confidences = list()
     self.used_original_texts = list()
     self.times = list()
+    self.scales = list()
   def save_ocr(self):
     """Saves the OCR output to a CSV in the top level of the working directory
     of this Text object."""
@@ -171,6 +173,7 @@ class Text:
         'mean_confidence': self.mean_confidences,
         'used_original_text': self.used_original_texts,
         'time': self.times,
+        'scale': self.scales,
     }).to_csv(os.path.join(self.out, 'page.csv'))
     self.save()
   def _save_images(self):
@@ -186,29 +189,24 @@ class Text:
     """Analyzes PAGE and records the data extracted from it. Does nothing if the
     page cannot be analyzed successfully.
     """
-    # Guarantee: metadata, orientation_used, language, used_original_text
-    # are defined after this branch statement.
     original_text = page.get_text()
     if total_image_area(page) / page.bound().getArea() < self.image_area_thresh:
-      metadata, orientation_used = None, None
+      metadata, orientation_used, scale = None, None, None
       language = detected_language(original_text)
       self.texts.append(original_text)
       self.mean_confidences.append(None)
       used_original_text = True
     else:
-      metadata, orientation_used, language = self._run_ocr(
-          image_from_page(page, scale=self.default_image_scale),
+      metadata, orientation_used, language, scale = self._run_ocr(
+          page,
           (detected_language(original_text)
-           if len(original_text) >= self.text_len_thresh
-           else self.languages.items[0])
+               if len(original_text) >= self.text_len_thresh
+               else self.languages.items[0])
       )
       if mean_conf(metadata) < self.coarse_thresh:
         warnings.warn('Failed to analyze image.')
-      else: pass
-        # WORD CORRECTION FEATURE DISABLED. TODO: fix the feature.
-        # self._correct(image, metadata, mean_conf(metadata)+self.min_relative_conf)
       self.texts.append(data_to_string(
-          metadata.corrected if 'corrected' in metadata.columns else metadata.text
+        metadata.corrected if 'corrected' in metadata.columns else metadata.text
       ))
       self.mean_confidences.append(mean_conf(metadata))
       used_original_text = False
@@ -218,33 +216,51 @@ class Text:
     self.page_languages.append(language)
     self.used_original_texts.append(used_original_text)
     self.times.append(time.time())
-  def _run_ocr(self, image, language_guess):
-    """Returns metadata, orientation detected, and language detected from the
-    analysis of IMAGE. Returns (None, None, None) upon failure to extract text
-    from IMAGE.
-    IMAGE - the image to be analyzed
+    self.scales.append(scale)
+  def _run_ocr(self, page, language_guess):
+    """Returns metadata, orientation, detected language, and image scale used
+    from the analysis of PAGE. Returns (None, None, None) upon failure to
+    extract text from PAGE.
+    PAGE - the page to be analyzed
     LANGUAGE_GUESS - the expected language of any text in IMAGE
     """
     orientation_used = 0
+    scale_used = self.default_image_scale
+    image = image_from_page(page, scale=scale_used)
+    # What follows is the first pass, assuming that the page is "typical"
     try:
       metadata = data(image, language_guess)
     except TesseractError as e:
       warnings.warn('Tesseract failed: ' + str(e))
-      return (None, None, None)
+      return (None, None, None, None)
+    # What follows is an OSD-assisted attempt to improve upon the first pass
     if mean_conf(metadata) < self.coarse_thresh:
       if self.verbose: print('First guess at orientation + language failed.')
-      try:
-        result = self._osd_assisted_analysis(image)
-        if mean_conf(result[-1]) > mean_conf(metadata):
-            image, orientation_used, language_guess, metadata = result
-      except (TesseractError, ManagerError) as e:
-        warnings.warn('OCR failed: ' + str(e))
+      for scale in self.alternate_image_scales:
+        image = image_from_page(page, scale=scale)
+        try:
+          result = self._osd_assisted_analysis(image)
+          if mean_conf(result[-1]) > mean_conf(metadata):
+              image, orientation_used, language_guess, metadata = result
+              scale_used = scale
+          if mean_conf(metadata) >= self.coarse_thresh: break
+        except (TesseractError, ManagerError) as e:
+          warnings.warn('OCR failed: ' + str(e))
+    # What follows is a final pass with optimal text size and language
+    median_height = metadata.height.median()
     language = detected_language(data_to_string(metadata.text))
-    if language != language_guess:
-      if self.verbose:
-        print('Retrying with detected language. Language={}'.format(language))
-      metadata = data(image, language)
-    return (metadata, orientation_used, language)
+    if language != language_guess or not (self.target_word_height[0]
+        <= median_height <= self.target_word_height[1]):
+      target_height = (
+          self.target_word_height[0] + self.target_word_height[1]) / 2
+      optimal_scale = scale_used * target_height / median_height
+      if self.verbose: print('Retrying. Language={}, scale={:.4f}'.format(
+            language, optimal_scale))
+      result = data(image_from_page(page, scale=optimal_scale), language)
+      if mean_conf(result) > mean_conf(metadata):
+        metadata = result
+        scale_used = optimal_scale
+    return (metadata, orientation_used, language, scale_used)
   def _osd_assisted_analysis(self, image):
     """Returns the image, orientation, language, and metadata produced from
     analyzing IMAGE with orientation and script detection. Throws TesseractError
