@@ -267,7 +267,7 @@ class Text:
     or ManagerError upon failure.
     """
     osd_result = osd(image)
-    image = image.rotate(osd_result['Orientation in degrees'])
+    image = image.rotate(osd_result['Orientation in degrees'], expand=True)
     if osd_result['Script'] not in Text.languages_by_script:
       raise ManagerError('The script detected by OSD, "{}", is not '
           'supported.'.format(osd_result['Script']))
@@ -357,10 +357,14 @@ def total_image_area(page):
 
 def mean_conf(metadata):
   """Returns the mean confidence by word of the OCR output given by METADATA.
-  Returns 0 of METADATA is None.
+  Returns 0 of METADATA is None or has nothing but whitespace. Does not count
+  whitespace.
   """
   if metadata is None: return 0
-  return metadata.conf[metadata.conf >= 0].mean()
+  valid_confs = metadata.conf[(metadata.conf >= 0) & pd.array([
+    (not pd.isna(text) and (text.strip() != '')) for text in metadata.text
+    ])]
+  return valid_confs.mean() if len(valid_confs.index) > 0 else 0
 
 def osd(image):
   """Returns a dictionary with orientation and script data for IMAGE."""
