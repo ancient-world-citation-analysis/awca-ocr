@@ -99,8 +99,11 @@ class Text:
   # is that the program runs significantly slower: It seems to be slowed by a
   # constant factor of perhaps 2 or 3.
   default_image_scale = 1.75
-  alternate_image_scales = (1, 2, 4)
-  target_word_height = (14, 17)
+  alternate_image_scales = (2, 4)
+  word_height_range = (14, 17)
+  target_word_height = 15.5
+  target_mean_conf = 90
+  max_unreadable = 5
   def __init__(self, src, out,
                coarse_thresh=75, min_relative_conf=0,
                image_area_thresh=0.5, text_len_thresh=100,
@@ -190,7 +193,8 @@ class Text:
     page cannot be analyzed successfully.
     """
     original_text = page.get_text()
-    if total_image_area(page) / page.bound().getArea() < self.image_area_thresh:
+    if (total_image_area(page) / page.bound().getArea() < self.image_area_thresh
+        or len([a for a in original_text if a == '�']) > self.max_unreadable):
       metadata, orientation_used, scale = None, None, None
       language = detected_language(original_text)
       self.texts.append(original_text)
@@ -249,11 +253,11 @@ class Text:
     # What follows is a final pass with optimal text size and language
     median_height = metadata.height.median()
     language = detected_language(data_to_string(metadata.text))
-    if language != language_guess or not (self.target_word_height[0]
-        <= median_height <= self.target_word_height[1]):
-      target_height = (
-          self.target_word_height[0] + self.target_word_height[1]) / 2
-      optimal_scale = scale_used * target_height / median_height
+    if language != language_guess or (
+        mean_conf(metadata) < self.target_mean_conf
+        and not (self.word_height_range[0]
+          <= median_height <= self.word_height_range[1])):
+      optimal_scale = scale_used * self.target_word_height / median_height
       if self.verbose: print('Retrying. Language={}, scale={:.4f}'.format(
             language, optimal_scale))
       result = data(image_from_page(page, scale=optimal_scale), language)
@@ -332,7 +336,7 @@ def detected_language(text, default='eng'):
   except LangDetectException:
     pass
   return default
-  
+
 def image_from_page(page, scale=1):
   """Returns a PIL Image representation of PAGE, a fitz.Page object.
   PAGE  - the page to be represented as an Image
