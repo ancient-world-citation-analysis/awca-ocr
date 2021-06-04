@@ -194,7 +194,7 @@ class Text:
     """
     original_text = page.get_text()
     if (total_image_area(page) / page.bound().getArea() < self.image_area_thresh
-        or len([a for a in original_text if a == '�']) > self.max_unreadable):
+        and not len([a for a in original_text if a == '�']) > self.max_unreadable):
       metadata, orientation_used, scale = None, None, None
       language = detected_language(original_text)
       self.texts.append(original_text)
@@ -230,7 +230,8 @@ class Text:
     """
     orientation_used = 0
     scale_used = self.default_image_scale
-    image = image_from_page(page, scale=scale_used)
+    image = image_from_page(page, scale=scale_used).rotate(
+      orientation_used, expand=True)
     # What follows is the first pass, assuming that the page is "typical"
     try:
       metadata = data(image, language_guess)
@@ -245,7 +246,7 @@ class Text:
         try:
           result = self._osd_assisted_analysis(image)
           if mean_conf(result[-1]) > mean_conf(metadata):
-              image, orientation_used, language_guess, metadata = result
+              orientation_used, language_guess, metadata = result
               scale_used = scale
           if mean_conf(metadata) >= self.coarse_thresh: break
         except (TesseractError, ManagerError) as e:
@@ -260,13 +261,16 @@ class Text:
       optimal_scale = scale_used * self.target_word_height / median_height
       if self.verbose: print('Retrying. Language={}, scale={:.4f}'.format(
             language, optimal_scale))
-      result = data(image_from_page(page, scale=optimal_scale), language)
+      result = data(
+        image_from_page(page, scale=optimal_scale).rotate(
+          orientation_used, expand=True),
+        language)
       if mean_conf(result) > mean_conf(metadata):
         metadata = result
         scale_used = optimal_scale
     return (metadata, orientation_used, language, scale_used)
   def _osd_assisted_analysis(self, image):
-    """Returns the image, orientation, language, and metadata produced from
+    """Returns the orientation, language, and metadata produced from
     analyzing IMAGE with orientation and script detection. Throws TesseractError
     or ManagerError upon failure.
     """
@@ -278,7 +282,7 @@ class Text:
     poss_languages = Text.languages_by_script[osd_result['Script']]
     for language in self.languages.items:
       if language in poss_languages:
-        return (image, osd_result['Orientation in degrees'], language,
+        return (osd_result['Orientation in degrees'], language,
             data(image, language))
   def _correct(self, image, metadata, min_conf):
     """Adds a column to the metadata table METADATA that is the corrected form
