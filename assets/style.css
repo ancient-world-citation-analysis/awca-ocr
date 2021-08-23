@@ -1,0 +1,22 @@
+.lang-slider label {
+    text-align: center;
+}
+.lang-slider {
+    border-bottom: 1px solid lightblue;
+}
+.ocr-options {
+    width: 50%;
+    margin: auto;
+}
+#ocr-upload {
+    width: 50%;
+    text-align: center;
+    border-radius: 1em;
+    border: 1px dashed grey;
+    padding: 1em;
+    margin: auto;
+    margin-top: 1em;
+}
+#ocr-output {
+    border: 2px solid red;
+}
