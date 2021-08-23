@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod
 from typing import List, Tuple
 from numbers import Real
 
@@ -98,7 +99,13 @@ class RandomRenderer:
                     return font
         return self.fonts[0]
 
-class Normal:
+class RV(metaclass=ABCMeta):
+    @abstractmethod
+    def rvs(self): pass
+
+RV.register(stats.rv_continuous)
+
+class Normal(RV):
     """Represents a normal distribution with mean `mu` and standard
     deviation `std`.
     """

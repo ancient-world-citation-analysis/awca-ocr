@@ -1,4 +1,4 @@
-__pycache__/*
+__pycache__/
 tesseract/
 env/
 train_plain_ces/
@@ -6,3 +6,4 @@ langdata/
 ces_from_full/
 translit/
 train_translit/
+.idea/
