@@ -106,12 +106,12 @@ def get_query_string_remover(resolver: UrlResolver = lambda x: x) -> UrlResolver
     return lambda x: resolver(x).split('?')[0]
 
 
-def wikipedia_home_page(langcode: str) -> str:
-    """Returns the Wikipedia home page for the language given by
+def wikipedia_about_page(langcode: str) -> str:
+    """Returns the Wikipedia "About" page for the language given by
     `langcode`.
     :param langcode: The language code of the desired language
     """
-    return 'https://{}.wikipedia.org/wiki/Home_page'.format(langcode)
+    return 'https://{}.wikipedia.org/wiki/Wikipedia:About'.format(langcode)
 
 
 def wikipedia(langcode: str) -> str:
