@@ -179,10 +179,6 @@ class Text:
         'scale': self.scales,
     }).to_csv(os.path.join(self.out, 'page.csv'))
     self.save()
-  def _save_images(self):
-    """Saves images of the pages of the text in the working directory."""
-    os.mkdir(self.images_dir)
-    convert_from_path(self.src, output_folder=self.images_dir)
   def clean(self):
     """Deletes the files needed for intermediate steps in the analysis of the
     text.
