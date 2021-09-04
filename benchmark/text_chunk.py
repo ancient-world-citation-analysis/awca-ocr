@@ -9,17 +9,22 @@ def get_chunker(
     rng: Generator,
     max_line_len: int = 60,
     max_page_len: int = 30,
-    mean_section_len: float = 3.0
+    mean_section_len: float = 15000
 ) -> Callable[[str], str]:
     """Returns a text chunker that takes in text and produces pages of
     chunked and permuted text.
+    :param rng: The random number generator that determines the behavior
+        of the returned chunker
+    :param max_line_len: The maximum number of characters per line
+    :param mean_section_len: The mean number of characters per section of
+        contiguous text
     """
     return composed(
-        get_line_breaker(max_line_len),
-        get_page_breaker(max_page_len),
         get_section_breaker(rng, 1 / mean_section_len),
         get_permuter(rng),
-        concatenator
+        concatenator,
+        get_line_breaker(max_line_len),
+        get_page_breaker(max_page_len)
     )
 
 def get_line_breaker(max_line_len: int = 60) -> Callable[[str], str]:
