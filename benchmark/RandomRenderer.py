@@ -45,7 +45,7 @@ class RandomRenderer:
         self.orientation_rv = stats.rv_discrete(
             name='orientation',
             values=((0, 90, 270, 180), orientation_dist),
-            seed=rng
+            seed=rng.integers(int(1e9))
         )
         self.fontsize_rv = Normal(fontsize_mean, fontsize_std, rng)
         self.background_color_rvs = [
@@ -56,18 +56,32 @@ class RandomRenderer:
             Normal(mean, std, rng)
             for mean, std in zip(foreground_color_means, foreground_color_stds)
         ]
+        self.choices = {
+            name: list() for name in (
+                'font', 'orientation', 'fontsize', 'background_color',
+                'foreground_color'
+            )
+        }
     def render(self, text: str) -> Image:
         """Renders `text` and returns the resulting image."""
-        img = Image.new('RGB', self.size, (
+        orientation = self.orientation_rv.rvs()
+        background_color = (
             *[to_color(rv.rvs()) for rv in self.background_color_rvs], 0
-        ))
+        )
+        foreground_color = tuple(
+            to_color(rv.rvs()) for rv in self.foreground_color_rvs
+        )
+        self.choices['orientation'].append(orientation)
+        self.choices['background_color'].append(background_color)
+        self.choices['foreground_color'].append(foreground_color)
+        img = Image.new('RGB', self.size, background_color)
         ImageDraw.Draw(img).text(
             self.top_left,
             text=text,
             font=self._get_font(text),
-            fill=tuple(to_color(rv.rvs()) for rv in self.foreground_color_rvs)
+            fill=foreground_color
         )
-        return img.rotate(self.orientation_rv.rvs())
+        return img.rotate(orientation)
     def _get_font(
         self, text: str,
         required_n_renderable_chars: int = 3
@@ -76,24 +90,27 @@ class RandomRenderer:
         able to render at least `required_n_renderable_chars` characters
         of `text`.
         """
-        return ImageFont.truetype(
-            self._get_font_path(text, required_n_renderable_chars),
-            size=max(0, round(self.fontsize_rv.rvs()))
+        font_path = self._get_font_path(text, required_n_renderable_chars)
+        size = max(0, round(self.fontsize_rv.rvs()))
+        self.choices['font'].append(
+            os.path.splitext(os.path.basename(font_path))[0]
         )
+        self.choices['fontsize'].append(size)
+        return ImageFont.truetype(font_path, size=size)
     def _get_font_path(
         self, text: str,
-        required_n_renderable_chars: int = 3
+        required_n_renderable_chars: int = 15
     ) -> str:
         """Returns a path to a TrueType font that is guaranteed to be
         able to render at least `required_n_renderable_chars` characters
         of `text`.
         """
+        required_n_renderable_chars = min(len(text), required_n_renderable_chars)
         self.rng.shuffle(self.fonts)
         if len(text) > 0:
-            characters = [
-                self.rng.choice(list(text))
-                for _ in range(required_n_renderable_chars)
-            ]
+            characters = self.rng.choice(
+                list(text), required_n_renderable_chars, replace=False
+            )
             for font in self.fonts:
                 if all(font_has_char(font, c) for c in characters):
                     return font
