@@ -17,6 +17,14 @@ def web_walk(
         websites: Optional[Set[str]] = None,
         fringe_size: int = 5,
         url_resolver: UrlResolver = lambda s: s,
+        exclude=(
+          'style', 'script', 'img', 'meta', 'nav', 'figure', 'figcaption',
+          'figure', 'code', 'data', 'var', 'audio', 'video', 'map', 'video',
+          'iframe', 'embed', 'object', 'param', 'picture', 'portal', 'math',
+          'svg', 'canvas', 'table', 'base', 'head', 'link', 'kbd', 'area',
+          'track', 'source', 'slot', 'template', 'form', 'details', 'dialog',
+          'menu', 'summary'
+        ),
         verbose: bool = False
 ) -> str:
     """Returns a string of length approximately `desired_text_len`
@@ -34,6 +42,8 @@ def web_walk(
         simultaneously
     :param url_resolver: A function for interpreting hyperlinks that
         might otherwise be invalid
+    :param exclude: HTML subtree types to exclude from the output, as denoted by
+        their HTML tags
     :param verbose: Whether to print verbose output
     """
     visited = set()
@@ -73,6 +83,8 @@ def web_walk(
             except requests.exceptions.RequestException:
                 continue
             soup = BeautifulSoup(response.text, 'html.parser')
+            for tag in soup.find_all(list(exclude)):
+              tag.extract()
             text = soup.get_text()
             result += checked(text)
             new_fringe.extend(filtered(soup))

@@ -1,12 +1,13 @@
 """Break text into passage-sized, page-sized, line-sized pieces."""
 
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Sequence
 from numpy.random import Generator
 from functools import reduce
 import operator
 
 def get_chunker(
     rng: Generator,
+    min_line_len: int = 30,
     max_line_len: int = 60,
     max_page_len: int = 30,
     mean_section_len: float = 15000
@@ -20,12 +21,32 @@ def get_chunker(
         contiguous text
     """
     return composed(
+        get_line_filter(min_line_len),
         get_section_breaker(rng, 1 / mean_section_len),
         get_permuter(rng),
         concatenator,
         get_line_breaker(max_line_len),
         get_page_breaker(max_page_len)
     )
+
+def get_line_filter(min_line_len: int = 30) -> Callable[[str], str]:
+    """Returns a function that filters out lines of text that are too
+    short (where a line is defined to be a contiguous sequence of
+    characters that are not the newline character '\n').
+    :param min_line_len: The minimum line length required for a line of
+        text to be included
+    """
+    def line_filter(original: str) -> str:
+        out = list()
+        next_line = list()
+        for char in original + '\n':
+            next_line.append(char)
+            if char == '\n':
+                if len(next_line) >= min_line_len:
+                    out.extend(next_line)
+                next_line = list()
+        return ''.join(out)
+    return line_filter
 
 def get_line_breaker(max_line_len: int = 60) -> Callable[[str], str]:
     """Returns a function that inserts newlines as needed to ensure that
@@ -67,18 +88,21 @@ def get_page_breaker(max_page_len: int = 30) -> Callable[[str], List[str]]:
     return breaker
 
 def get_section_breaker(
-    rng: Generator, r: float = 1/3
-) -> Callable[[List[Any]], List[List[Any]]]:
+    rng: Generator, r: float
+) -> Callable[[Sequence[Any]], List[Sequence[Any]]]:
     """Returns a function that breaks a list into sublists with length
     distributed as Geometric(r).
     """
-    def breaker(original: List[Any]) -> List[List[Any]]:
-        if not original:
-            return []
-        end = 1
-        while rng.random() > r:
-            end += 1
-        return [original[:end]] + breaker(original[end:])
+    def breaker(original: Sequence[Any]) -> List[Sequence[Any]]:
+        break_indices = [0]
+        for i in range(1, len(original)):
+            if rng.random() < r:
+                break_indices.append(i)
+        break_indices.append(len(original))
+        ret = list()
+        for start_idx, end_idx in zip(break_indices[:-1], break_indices[1:]):
+            ret.append(original[start_idx:end_idx])
+        return ret
     return breaker
 
 def get_permuter(rng: Generator) -> Callable[[List[Any]], List[Any]]:
