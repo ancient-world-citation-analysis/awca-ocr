@@ -5,6 +5,7 @@ from numpy.random import Generator
 from functools import reduce
 import operator
 
+
 def get_chunker(
     rng: Generator,
     min_line_len: int = 30,
@@ -17,8 +18,8 @@ def get_chunker(
     :param rng: The random number generator that determines the behavior
         of the returned chunker
     :param max_line_len: The maximum number of characters per line
-    :param mean_section_len: The mean number of characters per section of
-        contiguous text
+    :param mean_section_len: The mean number of characters per section
+        of contiguous text
     """
     return composed(
         get_line_filter(min_line_len),
@@ -28,6 +29,7 @@ def get_chunker(
         get_line_breaker(max_line_len),
         get_page_breaker(max_page_len)
     )
+
 
 def get_line_filter(min_line_len: int = 30) -> Callable[[str], str]:
     """Returns a function that filters out lines of text that are too
@@ -48,6 +50,7 @@ def get_line_filter(min_line_len: int = 30) -> Callable[[str], str]:
         return ''.join(out)
     return line_filter
 
+
 def get_line_breaker(max_line_len: int = 60) -> Callable[[str], str]:
     """Returns a function that inserts newlines as needed to ensure that
     no lines are longer than `max_line_len`.
@@ -66,6 +69,7 @@ def get_line_breaker(max_line_len: int = 60) -> Callable[[str], str]:
                 chars_since_newline = 0
         return ''.join(out)
     return breaker
+
 
 def get_page_breaker(max_page_len: int = 30) -> Callable[[str], List[str]]:
     """Returns a function that splits strings into segments with only a
@@ -87,6 +91,7 @@ def get_page_breaker(max_page_len: int = 30) -> Callable[[str], List[str]]:
             start = break_position
     return breaker
 
+
 def get_section_breaker(
     rng: Generator, r: float
 ) -> Callable[[Sequence[Any]], List[Sequence[Any]]]:
@@ -105,6 +110,7 @@ def get_section_breaker(
         return ret
     return breaker
 
+
 def get_permuter(rng: Generator) -> Callable[[List[Any]], List[Any]]:
     """Returns a function that returns a random permutation of a list."""
     def permuter(s):
@@ -112,9 +118,11 @@ def get_permuter(rng: Generator) -> Callable[[List[Any]], List[Any]]:
         return [s[i] for i in permutation]
     return permuter
 
+
 def concatenator(x: List[List[Any]]) -> List[Any]:
     """Concatenates lists."""
     return reduce(operator.add, x)
+
 
 def composed(*functions) -> Callable:
     """Returns the composition of the given functions."""

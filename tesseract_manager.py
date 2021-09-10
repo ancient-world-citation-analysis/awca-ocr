@@ -20,27 +20,29 @@ with Tesseract that is optimized for our use case (multiple
 languages, use of IPA characters, issues with orientation, high
 emphasis on speed, et cetera).
 '''
+# TODO: Rename module to exclude the word "Manager", which some say is
+# meaningless.
 
 
 class WeightTracker:
     """Tracks the weights of items and supports iteration over them in
     order.
     All objects in the universe are in any WeightTracker instance,
-    regardless of whether they have been explicitly added; by default, their
-    weights are 0.
+    regardless of whether they have been explicitly added; by default,
+    their weights are 0.
     """
 
     def __init__(self, items, presorted=True, r=0.5):
         """Initializes a WeightTracker that tracks the weights of ITEMS.
-        :param items: the items whose weights are to be tracked. These items
-                must be hashable.
-        :param presorted: whether `items` is presorted in order of DECREASING
-                expected importance
-        :param r: the proportion by which all weights should in response to
-                each weight update. Set to a large value (close to 1) to make
-                the WeightTracker weight recent observations and old
-                observations equally heavily. Set to a small value (close to
-                0) to make old observations relatively unimportant.
+        :param items: the items whose weights are to be tracked. These
+            items must be hashable.
+        :param presorted: whether `items` is presorted in order of
+            DECREASING expected importance
+        :param r: the proportion by which all weights should in response
+            to each weight update. Set to a large value (close to 1) to
+            make the WeightTracker weight recent observations and old
+            observations equally heavily. Set to a small value (close to
+            0) to make old observations relatively unimportant.
         """
         self.items = items
         self.r = r
@@ -73,8 +75,8 @@ class Text:
             'fin'
         },
         'Arabic': {'ara'},
-        'Cyrillic': {'rus'},  # Tesseract seems to recognize Greek as
-        # Cyrillic.
+        'Cyrillic': {'rus'},
+        # FIXME: Tesseract recognizes Greek as Cyrillic
         'Greek': {'ell'},
         'Japanese': {'jpn'},
         'Japanese_vert': {'jpn'},
@@ -121,30 +123,33 @@ class Text:
         """Initializes a Text object from the file specified at `src`.
         :param path: must lead to a directory that does not yet exist.
         :param src: the path to the file to be analyzed. When accessing
-            files in Google Drive, it is recommended to access them by ID to
-            circumvent name conflicts, save a temporary file in a different
-            location, and pass the location of the temporary file as `src`.
-        :param out: the path the the working directory of this Text object
-            (where output is to be saved)
+            files in Google Drive, it is recommended to access them by
+            ID to circumvent name conflicts, save a temporary file in a
+            different location, and pass the location of the temporary
+            file as `src`.
+        :param out: the path the the working directory of this Text
+            object (where output is to be saved)
         :param coarse_thresh: the minimum mean confidence level by word
             required to assume that the OCR output is at least using the
             correct script and orientation
-        :param relative_conf: the minimum confidence level for a particular
-            word relative to the mean confidence level of the entire page
-        :param image_area_thresh: the threshold proportion of page area that
-            is consumed by an image, beyond which the image must be taken into
-            acccount in the text extraction process
+        :param relative_conf: the minimum confidence level for a
+            particular word relative to the mean confidence level of the
+            entire page
+        :param image_area_thresh: the threshold proportion of page area
+            that is consumed by an image, beyond which the image must be
+            taken into acccount in the text extraction process
         :param image_area_thresh: the threshold length of the text (in
-            characters) originally explicitly encoded in a PDF, beyond which
-            the original text may be taken into account in the text extraction
-            process
-        :param languages: a WeightTracker instance with the expected languages
-            weighted in accordance to their expected probabilities
-        :param second_languages: a WeightTracker instance with the languages
-            expected to appear in isolated foreign words (e.g., proper
-            nouns)
-        :param verbose: whether detailed information should be printed by this
-            Text instance
+            characters) originally explicitly encoded in a PDF, beyond
+            which the original text may be taken into account in the
+            text extraction process
+        :param languages: a WeightTracker instance with the expected
+            languages weighted in accordance to their expected
+            probabilities
+        :param second_languages: a WeightTracker instance with the
+            languages expected to appear in isolated foreign words
+            (e.g., proper nouns)
+        :param verbose: whether detailed information should be printed
+            by this Text instance
         """
         self.src = src
         self.out = out
@@ -193,8 +198,8 @@ class Text:
         self.save()
 
     def clean(self):
-        """Deletes the files needed for intermediate steps in the analysis of
-        the text.
+        """Deletes the files needed for intermediate steps in the
+        analysis of the text.
         """
         os.rmdir(self.images_dir)
 
@@ -238,11 +243,12 @@ class Text:
         self.scales.append(scale)
 
     def _run_ocr(self, page, language_guess):
-        """Returns metadata, orientation, detected language, and image scale
-        used from the analysis of `page`. Returns `(None, None, None)` upon
-        failure to extract text from `page`.
+        """Returns metadata, orientation, detected language, and image
+        scale used from the analysis of `page`. Returns
+        `(None, None, None)` upon failure to extract text from `page`.
         :param page: the page to be analyzed
-        :param language_guess: - the expected language of any text in `image`
+        :param language_guess: - the expected language of any text in
+            `image`
         """
         orientation_used = 0
         scale_used = self.default_image_scale
@@ -313,14 +319,15 @@ class Text:
         corrected form of the words given in its "text" column.
         :param image: the image to analyze
         :param metadata: the metadata table that is to be corrected
-        :param min_conf: the minimum confidence level required for a word to be
-                  assumed correct and excluded from further examination
+        :param min_conf: the minimum confidence level required for a
+            word to be assumed correct and excluded from further
+            examination
         """
         def corrector(row):
-            """Uses data in ROW corresponding to a word shown in IMAGE to
-            determine the text that most likely represents the word. Updates
-            weights in SECOND_LANGUAGES depending on which languages
-            successfully give high-certainty matches.
+            """Uses data in ROW corresponding to a word shown in IMAGE
+            to determine the text that most likely represents the word.
+            Updates weights in SECOND_LANGUAGES depending on which
+            languages successfully give high-certainty matches.
             """
             if 0 <= row.conf < min_conf:
                 word_image = image.crop(
@@ -352,11 +359,13 @@ class ManagerError(Exception):
 
 
 def detected_language(text, default='eng'):
-    """Returns the detected language of `text`, using the LangCode recognized
-    by Tesseract (as described here:
-    https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html)
-    `text` - the text to analyze
-    `default` - the language to return if no likely language can be found
+    """Returns the detected language of `text`, using the LangCode
+    recognized by Tesseract (as described here:
+    https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html
+    ).
+    :param text: the text to analyze
+    :param default: the language to return if no likely language can be
+        found
     """
     assert isinstance(text, str)
     try:
@@ -371,7 +380,8 @@ def detected_language(text, default='eng'):
 
 
 def image_from_page(page, scale=1):
-    """Returns a PIL Image representation of `page`, a `fitz.Page` object.
+    """Returns a PIL Image representation of `page`, a `fitz.Page`
+    object.
     :param page: the page to be represented as an `Image`
     :param scale: the proportion by which to scale the `Image`
     """
@@ -383,8 +393,8 @@ def image_from_page(page, scale=1):
 
 
 def total_image_area(page):
-    """Returns the total area (in pixels) consumed by images that appear in
-    `page`, a `fitz.Page` object.
+    """Returns the total area (in pixels) consumed by images that appear
+    in `page`, a `fitz.Page` object.
     Does not account for possible overlapping between images.
     """
     return sum(
@@ -409,7 +419,9 @@ def mean_conf(metadata):
 
 
 def osd(image):
-    """Returns a dictionary with orientation and script data for `image`."""
+    """Returns a dictionary with orientation and script data for
+    `image`.
+    """
     s = pytesseract.image_to_osd(image)
     ret = dict()
     for line in s.split('\n'):
@@ -421,8 +433,8 @@ def osd(image):
 
 
 def appropriate_type(value):
-    """Returns a representation of `value` cast to the simplest possible type
-    given its content.
+    """Returns a representation of `value` cast to the simplest possible
+    type given its content.
     """
     try:
         return int(value)
@@ -434,15 +446,17 @@ def appropriate_type(value):
 
 
 def data(image, language, config=''):
-    """Returns a `DataFrame` with the OCR output corresponding to `image`."""
+    """Returns a `DataFrame` with the OCR output corresponding to
+    `image`.
+    """
     s = pytesseract.image_to_data(image, lang=language, config=config)
     return pd.read_csv(StringIO(s), sep='\t', quoting=csv.QUOTE_NONE)
 
 
 def data_to_string(words):
     """Extracts a string from the metadata table column `words` that is
-    identical to the one generated by `pytesseract.image_to_string`. Used to
-    avoid redundant computations.
+    identical to the one generated by `pytesseract.image_to_string`.
+    Used to avoid redundant computations.
     """
     # TODO: I was suprised to find that it was necessary to cast the words
     # (direct Tesseract output) as strings. Perhaps look into this.
