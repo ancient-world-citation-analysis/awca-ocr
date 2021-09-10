@@ -110,12 +110,6 @@ def get_language_annotator(
         s = list(s)
         votes = [dict() for _ in range(len(s))]
         contested = list(range(len(s)))
-        get_votes(votes, s, contested, lambda _, e: e, lambda s, start_idx: (
-            ' '.join(s[start_idx:]), len(s)
-        ))
-        contested = contested_unit_indices(votes)
-        get_votes(votes, s, contested, lambda _, end: end, get_window)
-        contested = contested_unit_indices(votes)
         get_votes(votes, s, contested, lambda start, _: start + 1, get_window)
         return [
             max(results, key=lambda result: results[result])
