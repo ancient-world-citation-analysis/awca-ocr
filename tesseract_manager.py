@@ -1,3 +1,4 @@
+from typing import Generic, Hashable, Iterable, Optional, Sequence, TypeVar
 import pytesseract
 from pytesseract import TesseractError
 from PIL import Image
@@ -17,14 +18,13 @@ import warnings
 remembered that Tesseract does all of the magic behind the
 scenes; the goal here is simply to provide a clean interface
 with Tesseract that is optimized for our use case (multiple
-languages, use of IPA characters, issues with orientation, high
+languages, use of IPA characters, issues with orientation,
 emphasis on speed, et cetera).
 '''
-# TODO: Rename module to exclude the word "Manager", which some say is
-# meaningless.
+Item = TypeVar('Item', bound=Hashable)
 
 
-class WeightTracker:
+class WeightTracker(Generic[Item]):
     """Tracks the weights of items and supports iteration over them in
     order.
     All objects in the universe are in any WeightTracker instance,
@@ -32,17 +32,22 @@ class WeightTracker:
     their weights are 0.
     """
 
-    def __init__(self, items, presorted=True, r=0.5):
+    def __init__(
+        self,
+        items: Sequence[Item],
+        presorted: bool = True,
+        r: float = 0.5
+    ):
         """Initializes a WeightTracker that tracks the weights of ITEMS.
-        :param items: the items whose weights are to be tracked. These
-            items must be hashable.
+        :param items: the items whose weights are to be tracked
         :param presorted: whether `items` is presorted in order of
             DECREASING expected importance
-        :param r: the proportion by which all weights should in response
-            to each weight update. Set to a large value (close to 1) to
-            make the WeightTracker weight recent observations and old
-            observations equally heavily. Set to a small value (close to
-            0) to make old observations relatively unimportant.
+        :param r: the proportion by which all weights should change in
+            response to each weight update. Set to a large value (close
+            to 1) to make the WeightTracker weight recent observations
+            and old observations equally heavily. Set to a small value
+            (close to 0) to make old observations relatively
+            unimportant.
         """
         self.items = items
         self.r = r
@@ -51,8 +56,9 @@ class WeightTracker:
             for i, item in enumerate(items)
         }
 
-    def add_weight(self, item):
-        """Increases the weight given to ITEM.
+    def add_weight(self, item: Item):
+        """Increases the weight given to ITEM and re-orders the items by
+        weight.
         """
         self.weights = {item: self.weights[item]
                         * self.r for item in self.items}
@@ -115,11 +121,18 @@ class Text:
     target_mean_conf = 90
     max_unreadable = 5
 
-    def __init__(self, src, out,
-                 coarse_thresh=75, min_relative_conf=0,
-                 image_area_thresh=0.5, text_len_thresh=100,
-                 languages=None, second_languages=None,
-                 verbose=False):
+    def __init__(
+        self,
+        src: os.PathLike,
+        out: os.PathLike,
+        coarse_thresh=75,
+        min_relative_conf=0,
+        image_area_thresh=0.5,
+        text_len_thresh=100,
+        languages: Optional[WeightTracker] = None,
+        second_languages=None,
+        verbose=False
+    ):
         """Initializes a Text object from the file specified at `src`.
         :param path: must lead to a directory that does not yet exist.
         :param src: the path to the file to be analyzed. When accessing
@@ -203,7 +216,7 @@ class Text:
         """
         os.rmdir(self.images_dir)
 
-    def _analyze_page(self, page):
+    def _analyze_page(self, page: fitz.Page):
         """Analyzes `page` and records the data extracted from it. Does
         nothing if the page cannot be analyzed successfully.
         """
@@ -242,10 +255,17 @@ class Text:
         self.times.append(time.time())
         self.scales.append(scale)
 
-    def _run_ocr(self, page, language_guess):
+    def _run_ocr(
+        self, page: fitz.Page, language_guess: str
+    ) -> tuple[
+        Optional[pd.DataFrame],
+        Optional[float],
+        Optional[str],
+        Optional[float]
+    ]:
         """Returns metadata, orientation, detected language, and image
         scale used from the analysis of `page`. Returns
-        `(None, None, None)` upon failure to extract text from `page`.
+        `(None, None, None, None)` upon failure to extract text from `page`.
         :param page: the page to be analyzed
         :param language_guess: - the expected language of any text in
             `image`
@@ -298,10 +318,12 @@ class Text:
                 scale_used = optimal_scale
         return (metadata, orientation_used, language, scale_used)
 
-    def _osd_assisted_analysis(self, image):
+    def _osd_assisted_analysis(
+        self, image: Image
+    ) -> tuple[float, str, pd.DataFrame]:
         """Returns the orientation, language, and metadata produced from
-        analyzing IMAGE with orientation and script detection. Throws
-        TesseractError or ManagerError upon failure.
+        analyzing `image` with orientation and script detection. Throws
+        `TesseractError` or `ManagerError` upon failure.
         """
         osd_result = osd(image)
         image = image.rotate(osd_result['Orientation in degrees'], expand=True)
@@ -314,7 +336,7 @@ class Text:
                 return (osd_result['Orientation in degrees'], language,
                         data(image, language))
 
-    def _correct(self, image, metadata, min_conf):
+    def _correct(self, image: Image, metadata: pd.DataFrame, min_conf: float):
         """Adds a column to the metadata table `metadata` that is the
         corrected form of the words given in its "text" column.
         :param image: the image to analyze
@@ -358,7 +380,7 @@ class ManagerError(Exception):
     pass
 
 
-def detected_language(text, default='eng'):
+def detected_language(text: str, default: str = 'eng'):
     """Returns the detected language of `text`, using the LangCode
     recognized by Tesseract (as described here:
     https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html
@@ -367,7 +389,6 @@ def detected_language(text, default='eng'):
     :param default: the language to return if no likely language can be
         found
     """
-    assert isinstance(text, str)
     try:
         # Output of DETECT_LANGS is in decreasing order by estimated
         # probability
@@ -379,11 +400,10 @@ def detected_language(text, default='eng'):
     return default
 
 
-def image_from_page(page, scale=1):
-    """Returns a PIL Image representation of `page`, a `fitz.Page`
-    object.
-    :param page: the page to be represented as an `Image`
-    :param scale: the proportion by which to scale the `Image`
+def image_from_page(page: fitz.Page, scale: float = 1) -> Image:
+    """Converts a page to an image.
+    :param page: the page to be represented as an image
+    :param scale: the proportion by which to scale the image
     """
     pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
     return Image.frombytes(
@@ -392,10 +412,11 @@ def image_from_page(page, scale=1):
     )
 
 
-def total_image_area(page):
+def total_image_area(page: fitz.Page) -> int:
     """Returns the total area (in pixels) consumed by images that appear
-    in `page`, a `fitz.Page` object.
-    Does not account for possible overlapping between images.
+    in `page`.
+    Does not account for overlap between images, so it is possible for
+    the total computed area to exceed the actual area of the page.
     """
     return sum(
         rect.getArea()
@@ -404,7 +425,7 @@ def total_image_area(page):
     )
 
 
-def mean_conf(metadata):
+def mean_conf(metadata: pd.DataFrame) -> float:
     """Returns the mean confidence by word of the OCR output given by
     `metadata`.
     Returns 0 if `metadata` is `None` or has nothing but whitespace.
@@ -418,9 +439,8 @@ def mean_conf(metadata):
     return valid_confs.mean() if len(valid_confs.index) > 0 else 0
 
 
-def osd(image):
-    """Returns a dictionary with orientation and script data for
-    `image`.
+def osd(image: Image) -> dict:
+    """Returns orientation and script data for `image`.
     """
     s = pytesseract.image_to_osd(image)
     ret = dict()
@@ -445,7 +465,7 @@ def appropriate_type(value):
             return value
 
 
-def data(image, language, config=''):
+def data(image: Image, language: str, config: str = ''):
     """Returns a `DataFrame` with the OCR output corresponding to
     `image`.
     """
@@ -453,7 +473,7 @@ def data(image, language, config=''):
     return pd.read_csv(StringIO(s), sep='\t', quoting=csv.QUOTE_NONE)
 
 
-def data_to_string(words):
+def data_to_string(words: Iterable[str]):
     """Extracts a string from the metadata table column `words` that is
     identical to the one generated by `pytesseract.image_to_string`.
     Used to avoid redundant computations.
