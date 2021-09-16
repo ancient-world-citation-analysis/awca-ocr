@@ -198,3 +198,23 @@ SCRIPTS = {
     'Tibetan': {'bod', 'dzo'},
     'Vietnamese': {}
 }
+
+
+def inverse(d: dict) -> dict[set]:
+    """Computes the inverse of a (possibly not injective) map."""
+    ret = dict()
+    for key, value in d.items():
+        to_add = key if isinstance(key, set) else {key}
+        ret[value] = ret.get(value, set()) | to_add
+    return ret
+
+
+def iso_639_3_to_tess(langcode: str) -> set[str]:
+    """Converts `langcode`(s) to a language code that is recognized by
+    Tesseract.
+    """
+    tesseract_inverse = getattr(iso_639_3_to_tess, 'tesseract_inverse', None)
+    if not tesseract_inverse:
+        tesseract_inverse = inverse(TESSERACT)
+        iso_639_3_to_tess.tesseract_inverse = tesseract_inverse
+    return tesseract_inverse[langcode]

@@ -1,14 +1,15 @@
 from typing import Generic, Hashable, Iterable, Optional, Sequence, TypeVar
 import pytesseract
 from pytesseract import TesseractError
+from gcld3 import NNetLanguageIdentifier
 from PIL import Image
+import languages
+import pycountry
 import os
 import fitz
 import pandas as pd
 from io import StringIO
 import re
-import langdetect
-from langdetect.lang_detect_exception import LangDetectException
 import csv
 import time
 import pickle
@@ -278,6 +279,7 @@ class Text:
         try:
             metadata = data(image, language_guess)
         except TesseractError as e:
+            # FIXME: Look into when this happens and if it is avoidable.
             warnings.warn('Tesseract failed: ' + str(e))
             return (None, None, None, None)
         # What follows is an OSD-assisted attempt to improve upon the first
@@ -297,12 +299,16 @@ class Text:
                 except (TesseractError, ManagerError) as e:
                     warnings.warn('OCR failed: ' + str(e))
         # What follows is a final pass with optimal text size and language
+        # TODO: Factor all of the following out.
         median_height = metadata.height.median()
         language = detected_language(data_to_string(metadata.text))
         if language != language_guess or (
             mean_conf(metadata) < self.target_mean_conf
-            and not (self.word_height_range[0]
-                     <= median_height <= self.word_height_range[1])):
+            and not (
+                self.word_height_range[0] <= median_height <=
+                self.word_height_range[1]
+            )
+        ):
             optimal_scale = (
                 scale_used * self.target_word_height / median_height
             )
@@ -311,15 +317,19 @@ class Text:
                     language, optimal_scale))
             result = data(
                 image_from_page(page, scale=optimal_scale).rotate(
-                    orientation_used, expand=True),
-                language)
+                    orientation_used, expand=True
+                ),
+                language
+            )
             if mean_conf(result) > mean_conf(metadata):
                 metadata = result
                 scale_used = optimal_scale
         return (metadata, orientation_used, language, scale_used)
 
     def _osd_assisted_analysis(
-        self, image: Image
+        self,
+        image: Image,
+        max_n_languages: int = 4
     ) -> tuple[float, str, pd.DataFrame]:
         """Returns the orientation, language, and metadata produced from
         analyzing `image` with orientation and script detection. Throws
@@ -380,7 +390,11 @@ class ManagerError(Exception):
     pass
 
 
-def detected_language(text: str, default: str = 'eng'):
+def detected_language(
+    text: str,
+    default: str = 'eng',
+    nnli: NNetLanguageIdentifier = NNetLanguageIdentifier(1, 700)
+):
     """Returns the detected language of `text`, using the LangCode
     recognized by Tesseract (as described here:
     https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html
@@ -389,15 +403,14 @@ def detected_language(text: str, default: str = 'eng'):
     :param default: the language to return if no likely language can be
         found
     """
-    try:
-        # Output of DETECT_LANGS is in decreasing order by estimated
-        # probability
-        for lang in langdetect.detect_langs(text):
-            if lang.lang in Text.iso2tess:
-                return Text.iso2tess[lang.lang]
-    except LangDetectException:
-        pass
-    return default
+    if not text.strip():
+        return default
+    result = nnli.FindLanguage(text)
+    if not result.probability:
+        return default
+    return languages.langcodes.iso_639_3_to_tess(
+        pycountry.get(alpha_2=result.language).alpha_3
+    )
 
 
 def image_from_page(page: fitz.Page, scale: float = 1) -> Image:
