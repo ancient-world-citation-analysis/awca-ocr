@@ -1,4 +1,5 @@
-from typing import Generic, Hashable, Iterable, Optional, Sequence, TypeVar
+from typing import Any, Generic, Hashable, Iterable, Optional, Sequence, \
+    TypeVar
 import pytesseract
 from pytesseract import TesseractError
 from gcld3 import NNetLanguageIdentifier
@@ -22,6 +23,7 @@ with Tesseract that is optimized for our use case (multiple
 languages, use of IPA characters, issues with orientation,
 emphasis on speed, et cetera).
 '''
+
 Item = TypeVar('Item', bound=Hashable)
 
 
@@ -50,7 +52,7 @@ class WeightTracker(Generic[Item]):
             (close to 0) to make old observations relatively
             unimportant.
         """
-        self.items = items
+        self.items = list(items)
         self.r = r
         self.weights = {
             item: (1 / (i + 1) if presorted else 0)
@@ -210,12 +212,6 @@ class Text:
             'scale': self.scales,
         }).to_csv(os.path.join(self.out, 'page.csv'))
         self.save()
-
-    def clean(self):
-        """Deletes the files needed for intermediate steps in the
-        analysis of the text.
-        """
-        os.rmdir(self.images_dir)
 
     def _analyze_page(self, page: fitz.Page):
         """Analyzes `page` and records the data extracted from it. Does
@@ -465,7 +461,7 @@ def osd(image: Image) -> dict:
     return ret
 
 
-def appropriate_type(value):
+def appropriate_type(value: Any) -> Any:
     """Returns a representation of `value` cast to the simplest possible
     type given its content.
     """
@@ -478,7 +474,7 @@ def appropriate_type(value):
             return value
 
 
-def data(image: Image, language: str, config: str = ''):
+def data(image: Image, language: str, config: str = '') -> pd.DataFrame:
     """Returns a `DataFrame` with the OCR output corresponding to
     `image`.
     """
