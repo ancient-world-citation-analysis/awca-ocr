@@ -1,0 +1,26 @@
+The objective here is to provide a smaller subset of the fonts available in the hope of streamlining the evaluation process
+ -- and perhaps the training process as well.
+
+
+Reduced:
+"Arial" "Arial Black" "Arial Bold" "Arial Bold Italic" "Arial Italic" \
+"Courier New" "Courier New Bold" "Courier New Bold Italic" "Courier New Italic" \
+"DejaVu Sans" "DejaVu Sans Bold" "DejaVu Sans Oblique" "DejaVu Sans Ultra-Light" "DejaVu Serif" "DejaVu Serif Bold" "DejaVu Serif Italic"
+"FreeSans" "FreeSans Italic" \
+"FreeSerif" "FreeSerif Bold" "FreeSerif Bold Italic" "FreeSerif Italic" \
+"Georgia" "Georgia Bold" "Georgia Bold Italic" "Georgia Italic" \
+"Liberation Sans" "Liberation Sans Bold" "Liberation Sans Bold Italic" "Liberation Sans Italic" \
+"Liberation Serif" "Liberation Serif Bold" "Liberation Serif Bold Italic" "Liberation Serif Italic" \
+"Nimbus Roman" "Nimbus Roman, Bold" "Nimbus Roman, Bold Italic" "Nimbus Roman, Italic" \
+"Nimbus Sans" "Nimbus Sans Bold" "Nimbus Sans Bold Italic" "Nimbus Sans Italic" \
+"Times New Roman" "Times New Roman, Bold" "Times New Roman, Bold Italic" "Times New Roman, Italic" \
+"Trebuchet MS" "Trebuchet MS Bold" "Trebuchet MS Bold Italic" "Trebuchet MS Italic" \
+"Verdana" "Verdana Bold" "Verdana Bold Italic" "Verdana Italic" \
+
+
+Very reduced:
+"Arial" "Arial Bold" "Arial Italic" \
+"Courier New" "Courier New Bold" "Courier New Italic" \
+"Georgia" "Georgia Bold" "Georgia Italic" \
+"Times New Roman" "Times New Roman, Bold" "Times New Roman, Italic" \
+"Verdana" "Verdana Bold" "Verdana Italic" \

@@ -9,6 +9,7 @@ from numpy.random import Generator
 from PIL import Image, ImageDraw, ImageFont
 from fontTools.ttLib import TTFont
 
+
 class RandomRenderer:
     """Renders text according to random variables with
     pre-specified distributions.
@@ -19,18 +20,18 @@ class RandomRenderer:
         size: Tuple[int, int] = (600, 600),
         top_left: Tuple[int, int] = (20, 20),
         fonts_dir: str = '/usr/share/fonts',
-        orientation_dist: Tuple[Real, Real, Real, Real]
-            = (0.25, 0.25, 0.25, 0.25),
+        orientation_dist: Tuple[Real, Real, Real, Real] = (
+            0.25, 0.25, 0.25, 0.25),
         fontsize_mean: Real = 14,
         fontsize_std: Real = 3,
-        background_color_means: Tuple[Real, Real, Real]
-            = (230, 230, 230),
-        background_color_stds: Tuple[Real, Real, Real]
-            = (20, 20, 20),
-        foreground_color_means: Tuple[Real, Real, Real]
-            = (20, 20, 20),
-        foreground_color_stds: Tuple[Real, Real, Real]
-            = (20, 20, 20)
+        background_color_means: Tuple[Real, Real, Real] = (
+            230, 230, 230),
+        background_color_stds: Tuple[Real, Real, Real] = (
+            20, 20, 20),
+        foreground_color_means: Tuple[Real, Real, Real] = (
+            20, 20, 20),
+        foreground_color_stds: Tuple[Real, Real, Real] = (
+            20, 20, 20)
     ):
         self.rng = rng
         self.size = size
@@ -62,6 +63,7 @@ class RandomRenderer:
                 'foreground_color'
             )
         }
+
     def render(self, text: str) -> Image:
         """Renders `text` and returns the resulting image."""
         orientation = self.orientation_rv.rvs()
@@ -82,6 +84,7 @@ class RandomRenderer:
             fill=foreground_color
         )
         return img.rotate(orientation)
+
     def _get_font(
         self, text: str,
         required_n_renderable_chars: int = 3
@@ -97,6 +100,7 @@ class RandomRenderer:
         )
         self.choices['fontsize'].append(size)
         return ImageFont.truetype(font_path, size=size)
+
     def _get_font_path(
         self, text: str,
         required_n_renderable_chars: int = 15
@@ -105,7 +109,8 @@ class RandomRenderer:
         able to render at least `required_n_renderable_chars` characters
         of `text`.
         """
-        required_n_renderable_chars = min(len(text), required_n_renderable_chars)
+        required_n_renderable_chars = min(
+            len(text), required_n_renderable_chars)
         self.rng.shuffle(self.fonts)
         if len(text) > 0:
             characters = self.rng.choice(
@@ -116,11 +121,14 @@ class RandomRenderer:
                     return font
         return self.fonts[0]
 
+
 class RV(metaclass=ABCMeta):
     @abstractmethod
     def rvs(self): pass
 
+
 RV.register(stats.rv_continuous)
+
 
 class Normal(RV):
     """Represents a normal distribution with mean `mu` and standard
@@ -130,6 +138,7 @@ class Normal(RV):
         self.mu = mu
         self.std = std
         self.rng = rng
+
     def rvs(self):
         return stats.norm.rvs(
             loc=self.mu,
@@ -137,11 +146,13 @@ class Normal(RV):
             random_state=self.rng
         )
 
+
 def to_color(x: Real) -> int:
     """Returns the valid RGB value (i.e., integer in [0, 255]) that is
     closest to `x`.
     """
     return max(0, min(255, int(round(x))))
+
 
 def font_has_char(font_path: str, character: str) -> bool:
     """Returns whether the TrueType font located at `font_path` has the
@@ -153,6 +164,7 @@ def font_has_char(font_path: str, character: str) -> bool:
         table.isUnicode() and ord(character) in table.cmap
         for table in font['cmap'].tables
     )
+
 
 def get_truetype_fonts(fonts_dir: str = '/usr/share/fonts') -> List[str]:
     """Returns paths to all TrueType fonts located in `fonts_dir`."""

@@ -71,6 +71,24 @@ Steps:
   (something like that), it was going to use roughly 45 GB of disk space in the /tmp/ directory, and so I had to kill the
   process. Going forward I will break the text into chunks (eighths).
 
+The following will create the eval files that we want. Before running it, you will have to swap out the sample text file at
+tesstrain/langdata/ces/ces.training_text.
+IMPORTANT: I used tesstrain/langdata/ces/ur-iii/training_text_7.txt as the eval file. Of course, training_text_7.txt can still be
+used for training, but if it is, then of course our evaluation data will become meaningless due to overfitting.
+src/training/tesstrain.sh \
+  --fonts_dir /usr/share/fonts \
+  --lang ces \
+  --linedata_only \
+  --noextract_font_properties \
+  --langdata_dir ../langdata \
+  --tessdata_dir ./tessdata \
+  --output_dir ../translit_eval \
+  --fontlist "Arial" "Arial Bold" "Arial Italic" \
+    "Courier New" "Courier New Italic" \
+    "Georgia" "Georgia Bold" "Georgia Italic" \
+    "Times New Roman" "Times New Roman, Bold" "Times New Roman, Italic" \
+    "Verdana" "Verdana Italic"
+
 * The following command will create the model that we actually want:
   src/training/lstmtraining \
   --model_output ../train_translit/checkpoints/translit \

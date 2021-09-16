@@ -34,16 +34,16 @@ def web_walk(
     :param desired_text_len: The desired amount of text (in characters)
     :param rng: The random number generator that determines which sites
         are visited
-    :param language: The BCP-47 language code of the desired language of
-        the text (see https://github.com/google/cld3 for details)
+    :param language: The BCP-47 language code of the desired language
+        of the text (see https://github.com/google/cld3 for details)
     :param websites: The set of acceptable websites to explore (e.g.,
         {https://ar.wikipedia.org})
     :param fringe_size: The desired number of websites to explore
         simultaneously
     :param url_resolver: A function for interpreting hyperlinks that
         might otherwise be invalid
-    :param exclude: HTML subtree types to exclude from the output, as denoted by
-        their HTML tags
+    :param exclude: HTML subtree types to exclude from the output, as
+        denoted by their HTML tags
     :param verbose: Whether to print verbose output
     """
     visited = set()
@@ -84,7 +84,7 @@ def web_walk(
                 continue
             soup = BeautifulSoup(response.text, 'html.parser')
             for tag in soup.find_all(list(exclude)):
-              tag.extract()
+                tag.extract()
             text = soup.get_text()
             result += checked(text)
             new_fringe.extend(filtered(soup))
@@ -111,7 +111,9 @@ def get_prefixer(
     return prefixer
 
 
-def get_query_string_remover(resolver: UrlResolver = lambda x: x) -> UrlResolver:
+def get_query_string_remover(
+    resolver: UrlResolver = lambda x: x
+) -> UrlResolver:
     """Returns a `UrlResolver` that removes the query strings from
     URLs.
     """
