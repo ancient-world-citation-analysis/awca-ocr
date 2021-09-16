@@ -5,6 +5,7 @@ from pytesseract import TesseractError
 from gcld3 import NNetLanguageIdentifier
 from PIL import Image
 import languages
+import languages.langcodes
 import pycountry
 import os
 import fitz
@@ -195,7 +196,7 @@ class Text:
         """Saves the OCR output to a CSV in the top level of the working
         directory of this Text object."""
         t0 = time.time()
-        document = fitz.open(self.src)
+        document = fitz.open(self.src)  # type: ignore
         for i, page in enumerate(document):
             if self.verbose:
                 print('{} out of {} pages analyzed in {:.2f} seconds...'
@@ -217,7 +218,7 @@ class Text:
         """Analyzes `page` and records the data extracted from it. Does
         nothing if the page cannot be analyzed successfully.
         """
-        original_text = page.get_text()
+        original_text = page.get_text()  # type: ignore
         if (
             total_image_area(page) / page.bound().getArea()
             < self.image_area_thresh
@@ -269,7 +270,7 @@ class Text:
         """
         orientation_used = 0
         scale_used = self.default_image_scale
-        image = image_from_page(page, scale=scale_used).rotate(
+        image = image_from_page(page, scale=scale_used).rotate(  # type: ignore
             orientation_used, expand=True)
         # What follows is the first pass, assuming that the page is "typical"
         try:
@@ -296,30 +297,10 @@ class Text:
                     warnings.warn('OCR failed: ' + str(e))
         # What follows is a final pass with optimal text size and language
         # TODO: Factor all of the following out.
-        median_height = metadata.height.median()
-        language = detected_language(data_to_string(metadata.text))
-        if language != language_guess or (
-            mean_conf(metadata) < self.target_mean_conf
-            and not (
-                self.word_height_range[0] <= median_height <=
-                self.word_height_range[1]
+        metadata, language, scale_used = \
+            self._language_and_scale_optimized(
+                metadata, page, language_guess, scale_used, orientation_used
             )
-        ):
-            optimal_scale = (
-                scale_used * self.target_word_height / median_height
-            )
-            if self.verbose:
-                print('Retrying. Language={}, scale={:.4f}'.format(
-                    language, optimal_scale))
-            result = data(
-                image_from_page(page, scale=optimal_scale).rotate(
-                    orientation_used, expand=True
-                ),
-                language
-            )
-            if mean_conf(result) > mean_conf(metadata):
-                metadata = result
-                scale_used = optimal_scale
         return (metadata, orientation_used, language, scale_used)
 
     def _osd_assisted_analysis(
@@ -342,6 +323,46 @@ class Text:
                 return (osd_result['Orientation in degrees'], language,
                         data(image, language))
 
+    def _language_and_scale_optimized(
+        self,
+        metadata: pd.DataFrame,
+        page: fitz.Page,
+        language_guess: str,
+        scale_used: float,
+        orientation_used: float
+    ) -> tuple[pd.DataFrame, str, float]:
+        """Returns the metadata, language, and image scale
+        factor produced from analyzing `page` with optimal language
+        and image scale factor.
+        """
+        median_height = metadata.height.median()
+        language = detected_language(data_to_string(metadata.text))
+        if language != language_guess or (
+            mean_conf(metadata) < self.target_mean_conf
+            and not (
+                self.word_height_range[0] <= median_height <=
+                self.word_height_range[1]
+            )
+        ):
+            optimal_scale = (
+                scale_used * self.target_word_height / median_height
+            )
+            if self.verbose:
+                print('Retrying. Language={}, scale={:.4f}'.format(
+                    language, optimal_scale))
+            result = data(
+                image_from_page(
+                    page, scale=optimal_scale
+                ).rotate(  # type: ignore
+                    orientation_used, expand=True
+                ),
+                language
+            )
+            if mean_conf(result) > mean_conf(metadata):
+                metadata = result
+                scale_used = optimal_scale
+        return metadata, language, scale_used
+
     def _correct(self, image: Image, metadata: pd.DataFrame, min_conf: float):
         """Adds a column to the metadata table `metadata` that is the
         corrected form of the words given in its "text" column.
@@ -358,7 +379,7 @@ class Text:
             languages successfully give high-certainty matches.
             """
             if 0 <= row.conf < min_conf:
-                word_image = image.crop(
+                word_image = image.crop(  # type: ignore
                     (row.left, row.top, row.left+row.width, row.top+row.height)
                 )
                 for language in self.second_languages.items:
@@ -404,8 +425,15 @@ def detected_language(
     result = nnli.FindLanguage(text)
     if not result.probability:
         return default
-    return languages.langcodes.iso_639_3_to_tess(
-        pycountry.get(alpha_2=result.language).alpha_3
+    # Heuristic: Often, the language with the shortest langcode
+    # is the one without modifiers and therefore probably the
+    # most common or general one. For instance 'ita' is more
+    # common and general than 'ita_old'.
+    return min(
+        languages.langcodes.iso_639_3_to_tess(
+            pycountry.get(alpha_2=result.language).alpha_3  # type: ignore
+        ),
+        key=lambda lang: len(lang)
     )
 
 
@@ -414,10 +442,10 @@ def image_from_page(page: fitz.Page, scale: float = 1) -> Image:
     :param page: the page to be represented as an image
     :param scale: the proportion by which to scale the image
     """
-    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
-    return Image.frombytes(
+    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))  # type: ignore
+    return Image.frombytes(  # type: ignore
         ("RGBA" if pix.alpha else "RGB"),
-        [pix.width, pix.height], pix.samples
+        (pix.width, pix.height), pix.samples
     )
 
 
@@ -430,7 +458,7 @@ def total_image_area(page: fitz.Page) -> int:
     return sum(
         rect.getArea()
         for image in page.get_images()
-        for rect in page.get_image_rects(image)
+        for rect in page.get_image_rects(image)  # type: ignore
     )
 
 
@@ -453,9 +481,9 @@ def osd(image: Image) -> dict:
     """
     s = pytesseract.image_to_osd(image)
     ret = dict()
-    for line in s.split('\n'):
+    for line in s.split('\n'):  # type: ignore
         if line:
-            key, value = line.split(':')
+            key, value = line.split(':')  # type: ignore
             key, value = key.strip(), value.strip()
             ret[key] = appropriate_type(value)
     return ret
@@ -478,8 +506,10 @@ def data(image: Image, language: str, config: str = '') -> pd.DataFrame:
     """Returns a `DataFrame` with the OCR output corresponding to
     `image`.
     """
-    s = pytesseract.image_to_data(image, lang=language, config=config)
-    return pd.read_csv(StringIO(s), sep='\t', quoting=csv.QUOTE_NONE)
+    s = str(pytesseract.image_to_data(image, lang=language, config=config))
+    return pd.read_csv(  # type: ignore
+        StringIO(s), sep='\t', quoting=csv.QUOTE_NONE
+    )
 
 
 def data_to_string(words: Iterable[str]):

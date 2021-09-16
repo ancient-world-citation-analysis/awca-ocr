@@ -22,6 +22,9 @@ ISO 639-2 language codes.
 
 The two are almost identical, but there are exceptions.
 """
+from typing import Any
+
+
 TESSERACT = {
     'afr': 'afr',
     'amh': 'amh',
@@ -200,7 +203,7 @@ SCRIPTS = {
 }
 
 
-def inverse(d: dict) -> dict[set]:
+def inverse(d: dict) -> dict[Any, set]:
     """Computes the inverse of a (possibly not injective) map."""
     ret = dict()
     for key, value in d.items():
