@@ -1,6 +1,6 @@
 from typing import Sequence
 import gcld3
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Tuple, Dict
 
 """This module contains language detection tools built on top of CLD3.
 These are convenience functions for special use cases that CLD3 does
@@ -14,7 +14,7 @@ LinguisticUnit = str
 LangCode = str
 LanguageAnnotator = Callable[
     [Sequence[LinguisticUnit]],
-    list[LangCode]
+    List[LangCode]
 ]
 
 
@@ -39,12 +39,12 @@ def get_language_annotator(
         or (n_chars and not window_size)
     ), 'min_n_chars xor window_size must be a nonzero integer.'
 
-    ResultSelection = dict[LangCode, float]
+    ResultSelection = Dict[LangCode, float]
     Index = int
 
     def get_window(
-        s: list[LinguisticUnit], start_idx: Index
-    ) -> tuple[str, Index]:
+        s: List[LinguisticUnit], start_idx: Index
+    ) -> Tuple[str, Index]:
         """Returns a concatenation of linguistic units w starting at
         `start_idx`.
         Returns the index of the linguistic unit that immediately
@@ -70,11 +70,11 @@ def get_language_annotator(
         return result.probability * result.proportion
 
     def get_votes(
-        votes: list[ResultSelection],
-        s: list[LinguisticUnit],
-        contested_unit_indices: list[Index],
+        votes: List[ResultSelection],
+        s: List[LinguisticUnit],
+        contested_unit_indices: List[Index],
         update_start_idx: Callable[[Index, Index], Index],
-        get_window: Callable[[list[LinguisticUnit], Index], tuple[str, Index]]
+        get_window: Callable[[List[LinguisticUnit], Index], Tuple[str, Index]]
     ):
         """Updates the weights associated with the various languages
         that might be associated with the linguistic units.
@@ -106,7 +106,7 @@ def get_language_annotator(
             ]) > 0
         ]
 
-    def language_annotator(s: Sequence[LinguisticUnit]) -> list[LangCode]:
+    def language_annotator(s: Sequence[LinguisticUnit]) -> List[LangCode]:
         s = list(s)
         votes = [dict() for _ in range(len(s))]
         contested = list(range(len(s)))

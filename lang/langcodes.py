@@ -22,7 +22,7 @@ ISO 639-2 language codes.
 
 The two are almost identical, but there are exceptions.
 """
-from typing import Any
+from typing import Any, Dict, Set
 
 
 TESSERACT = {
@@ -41,13 +41,16 @@ TESSERACT = {
     'cat': 'cat',
     'ceb': 'ceb',
     'ces': 'ces',
-    'chi_sim': 'chi',
-    'chi_tra': 'chi',
+    'chi_sim': 'zho', # One of the few points where, for no apparent reason,
+    'chi_tra': 'zho', # ISO 639-2/B (legacy) is preferred to ISO 639-2/T
+                      # (preferable)
     'chr': 'chr',
     'cos': 'cos',
     'cym': 'cym',
     'dan': 'dan',
     'dan_frak': 'dan',
+    'deu': 'deu',
+    'deu_frak': 'deu',
     'dzo': 'dzo',
     'ell': 'ell',
     'eng': 'eng',
@@ -179,6 +182,10 @@ SCRIPTS = {
     'Japanese_vert': {'jpn'},
     'Kannada': {'kan'},  # Similar to Telugu & to a lesser extent Sinhala
     'Khmer': {'khm'},
+    'Korean': {'kor'},  # Same as Hangul. It is strange that both exist. It is
+                        # also strange that the Tesseract documentation
+                        # excludes "Korean" for the list of supported scripts,
+                        # even though its OSD feature reports "Korean".
     'Lao': {'lao'},
     'Latin': {
         'afr', 'aze', 'bos', 'bre', 'cat', 'ceb', 'ces', 'cos', 'cym', 'dan',
@@ -203,7 +210,7 @@ SCRIPTS = {
 }
 
 
-def inverse(d: dict) -> dict[Any, set]:
+def inverse(d: dict) -> Dict[Any, set]:
     """Computes the inverse of a (possibly not injective) map."""
     ret = dict()
     for key, value in d.items():
@@ -212,7 +219,7 @@ def inverse(d: dict) -> dict[Any, set]:
     return ret
 
 
-def iso_639_3_to_tess(langcode: str) -> set[str]:
+def iso_639_3_to_tess(langcode: str) -> Set[str]:
     """Converts `langcode`(s) to a language code that is recognized by
     Tesseract.
     """

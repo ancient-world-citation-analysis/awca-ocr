@@ -1,11 +1,11 @@
 from typing import Any, Generic, Hashable, Iterable, Optional, Sequence, \
-    TypeVar
+    TypeVar, Tuple
 import pytesseract
 from pytesseract import TesseractError
 from gcld3 import NNetLanguageIdentifier
 from PIL import Image
-import languages
-import languages.langcodes
+import lang
+import lang.langcodes
 import pycountry
 import os
 import fitz
@@ -70,15 +70,21 @@ class WeightTracker(Generic[Item]):
         self.items.sort(key=lambda item: self.weights[item], reverse=True)
 
 
+COMMON_LANGUAGES = [
+    'eng', 'tur', 'ara', 'deu', 'fra', 'rus', 'spa', 'nld',
+    'jpn', 'chi_sim', 'chi_tra', 'heb', 'ita', 'dan', 'swe',
+    'ell', 'lat', 'fin'
+]
+
+
 class Text:
     """Describes a single text that includes a coherent set of characteristics,
     such as language used.
     """
-    global_possible_languages = [
-        'eng', 'tur', 'ara', 'deu', 'fra', 'rus', 'spa', 'nld',
-        'jpn', 'chi_sim', 'chi_tra', 'heb', 'ita', 'dan', 'swe',
-        'ell', 'lat', 'fin'
-    ]
+    global_possible_languages = COMMON_LANGUAGES + list(filter(
+        lambda key: key not in COMMON_LANGUAGES,
+        lang.langcodes.TESSERACT.keys()
+    ))
     languages_by_script = {
         'Latin': {
             'eng', 'tur', 'deu', 'fra', 'spa', 'nld', 'ita', 'dan', 'swe',
@@ -179,7 +185,7 @@ class Text:
             if languages is None else languages
         )
         self.second_languages = (
-            WeightTracker(Text.global_possible_languages)
+            WeightTracker(Text.global_possible_languages, presorted=True)
             if second_languages is None else second_languages
         )
         self.verbose = verbose
@@ -255,7 +261,7 @@ class Text:
 
     def _run_ocr(
         self, page: fitz.Page, language_guess: str
-    ) -> tuple[
+    ) -> Tuple[
         Optional[pd.DataFrame],
         Optional[float],
         Optional[str],
@@ -298,7 +304,7 @@ class Text:
         # What follows is a final pass with optimal text size and language
         # TODO: Factor all of the following out.
         metadata, language, scale_used = \
-            self._language_and_scale_optimized(
+            self._final_pass_analysis(
                 metadata, page, language_guess, scale_used, orientation_used
             )
         return (metadata, orientation_used, language, scale_used)
@@ -307,30 +313,30 @@ class Text:
         self,
         image: Image,
         max_n_languages: int = 4
-    ) -> tuple[float, str, pd.DataFrame]:
+    ) -> Tuple[float, str, pd.DataFrame]:
         """Returns the orientation, language, and metadata produced from
         analyzing `image` with orientation and script detection. Throws
         `TesseractError` or `ManagerError` upon failure.
         """
         osd_result = osd(image)
         image = image.rotate(osd_result['Orientation in degrees'], expand=True)
-        if osd_result['Script'] not in Text.languages_by_script:
+        if osd_result['Script'] not in lang.langcodes.SCRIPTS:
             raise ManagerError('The script detected by OSD, "{}", is not '
                                'supported.'.format(osd_result['Script']))
-        poss_languages = Text.languages_by_script[osd_result['Script']]
+        poss_languages = lang.langcodes.SCRIPTS[osd_result['Script']]
         for language in self.languages.items:
             if language in poss_languages:
                 return (osd_result['Orientation in degrees'], language,
                         data(image, language))
 
-    def _language_and_scale_optimized(
+    def _final_pass_analysis(
         self,
         metadata: pd.DataFrame,
         page: fitz.Page,
         language_guess: str,
         scale_used: float,
         orientation_used: float
-    ) -> tuple[pd.DataFrame, str, float]:
+    ) -> Tuple[pd.DataFrame, str, float]:
         """Returns the metadata, language, and image scale
         factor produced from analyzing `page` with optimal language
         and image scale factor.
@@ -425,15 +431,26 @@ def detected_language(
     result = nnli.FindLanguage(text)
     if not result.probability:
         return default
+    base_bcp47 = result.language.split('-')[0]
+    if len(base_bcp47) == 2:
+        language = pycountry.languages.get(alpha_2=base_bcp47)
+        if language is None:
+            print("DEBUG: No language found corresponding to " + base_bcp47)
+            return default
+        iso_639_3 = language.alpha_3
+    else:
+        iso_639_3 = result.language
     # Heuristic: Often, the language with the shortest langcode
     # is the one without modifiers and therefore probably the
     # most common or general one. For instance 'ita' is more
     # common and general than 'ita_old'.
-    return min(
-        languages.langcodes.iso_639_3_to_tess(
-            pycountry.get(alpha_2=result.language).alpha_3  # type: ignore
-        ),
-        key=lambda lang: len(lang)
+    try:
+        possibilities = lang.langcodes.iso_639_3_to_tess(iso_639_3)
+    except KeyError:
+        return default
+    return (
+        min(possibilities, key=lambda language: len(language))
+        if possibilities else default
     )
 
 
