@@ -132,7 +132,7 @@ class Text:
     target_word_height = 15.5
     target_mean_conf = 90
     max_unreadable = 5
-    max_n_foreign_words = 15
+    max_n_foreign_words = 30
 
     def __init__(
         self,
@@ -420,24 +420,29 @@ class Text:
                         inline_annotations(metadata.text, annotations)
                     ))
                 wrong_lang_metadata = metadata[was_wrong_lang]
-                metadata = metadata[[not x for x in was_wrong_lang]]
-                other_languages_metadata, other_language, _ = \
-                    self._final_pass_analysis(
-                        wrong_lang_metadata,
-                        page,
-                        language,
-                        optimal_scale,
-                        orientation_used,
-                        (
-                            metadata if words_to_erase is None
-                            else pd.concat([metadata, words_to_erase])
-                        ),
-                        max_depth - 1
-                    )
-                # FIXME: Place the results in context according to location
-                # instead of simply appending them to the end
-                metadata = pd.concat([metadata, other_languages_metadata])
-                language = '{},{}'.format(language, other_language)
+                if detected_language(
+                    data_to_string(wrong_lang_metadata.text),
+                    default=language
+                ) != language:
+                    metadata = metadata[[not x for x in was_wrong_lang]]
+                    other_languages_metadata, _, _ = self._final_pass_analysis(
+                            wrong_lang_metadata,
+                            page,
+                            language,
+                            optimal_scale,
+                            orientation_used,
+                            (
+                                metadata if words_to_erase is None
+                                else pd.concat([metadata, words_to_erase])
+                            ),
+                            max_depth - 1 - (
+                                len(metadata.index) < self.max_n_foreign_words
+                            ) # Hasten approach to the end of recursion if the
+                              # number of words taken out in this pass was small
+                        )
+                    # FIXME: Place the results in context according to location
+                    # instead of simply appending them to the end
+                    metadata = pd.concat([metadata, other_languages_metadata])
         return metadata, language, scale_used
 
     def _correct(self, image: Image, metadata: pd.DataFrame, min_conf: float):
@@ -624,9 +629,11 @@ def data(image: Image, language: str, config: str = '') -> pd.DataFrame:
     `image`.
     """
     s = str(pytesseract.image_to_data(image, lang=language, config=config))
-    return pd.read_csv(  # type: ignore
+    df = pd.read_csv(  # type: ignore
         StringIO(s), sep='\t', quoting=csv.QUOTE_NONE
     )
+    df['language'] = [language] * len(df.index)
+    return df
 
 
 def data_to_string(words: Iterable[str]):

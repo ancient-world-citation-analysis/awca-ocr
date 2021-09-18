@@ -220,16 +220,21 @@ SCRIPTS = {
 
 
 def memoize(f):
-    """Memoizes the single-argument function `f`."""
-    d = dict()
+    """Memoizes `f`, a function with one argument.
+    """
+    arg = []
+    out = []
     def memoized(x):
-        if x in d:
-            return d[x]
-        d[x] = f(x)
-        return d[x]
+        for x_, y in zip(arg, out):
+            if x is x_: # Memoize wrt identity equality
+                return y
+        arg.append(x)
+        out.append(f(x))
+        return out[-1]
     return memoized
 
 
+@memoize
 def inverse(d: dict) -> Dict[Any, set]:
     """Computes the inverse of a (possibly not injective) map."""
     ret = dict()
@@ -247,7 +252,7 @@ def iso_639_3_to_tess(langcode: str) -> Set[str]:
     if not tesseract_inverse:
         tesseract_inverse = inverse(TESSERACT)
         iso_639_3_to_tess.tesseract_inverse = tesseract_inverse
-    return tesseract_inverse[langcode]
+    return inverse(TESSERACT)[langcode]
 
 
 def bcp47_to_tess(bcp47, default):
