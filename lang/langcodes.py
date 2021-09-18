@@ -10,21 +10,20 @@ the same language codes, although it is not formally a superset because
 ISO 639-2 includes non-languages. See
 https://en.wikipedia.org/wiki/ISO_639-3#Collective_languages for
 details.
-* BCP 47 uses ISO 639-1 when possible, and can be assumed to be the same
-as ISO 639-1 for the purpose of using CLD3.
+* BCP 47 uses ISO 639-1 when possible, but less concise standards when
+necessary.
 
 The above facts, combined with this module, should be sufficient for
 interpreting language codes in this project.
 """
 
-"""The language codes used by Tesseract and their corresponding
-ISO 639-2 language codes.
-
-The two are almost identical, but there are exceptions.
-"""
 from typing import Any, Dict, Set
+import pycountry
 
 
+"""A comprehensive list of the languages supported by Tesseract 4
+and their corresponding ISO 639-2/T language codes.
+"""
 TESSERACT = {
     'afr': 'afr',
     'amh': 'amh',
@@ -41,16 +40,15 @@ TESSERACT = {
     'cat': 'cat',
     'ceb': 'ceb',
     'ces': 'ces',
-    'chi_sim': 'zho', # One of the few points where, for no apparent reason,
-    'chi_tra': 'zho', # ISO 639-2/B (legacy) is preferred to ISO 639-2/T
-                      # (preferable)
+    'chi_sim': 'zho', # One of the few instances where ISO 639-2/B
+    'chi_tra': 'zho', # (legacy) is chosen over ISO 639-2/T
     'chr': 'chr',
     'cos': 'cos',
     'cym': 'cym',
     'dan': 'dan',
-    'dan_frak': 'dan',
+    # 'dan_frak': 'dan',  # Not available in Tesseract 4
     'deu': 'deu',
-    'deu_frak': 'deu',
+    # 'deu_frak': 'deu',  # Not available in Tesseract 4
     'dzo': 'dzo',
     'ell': 'ell',
     'eng': 'eng',
@@ -93,7 +91,8 @@ TESSERACT = {
     'kmr': 'kmr',
     'kor': 'kor',
     'kor_vert': 'kor',
-    'kur': 'kur',
+    'kur_ara': 'kur',  # This came as a surprise: the language code
+                       # given in the documentation is "kur"
     'lao': 'lao',
     'lat': 'lat',
     'lav': 'lav',
@@ -122,7 +121,7 @@ TESSERACT = {
     'san': 'san',
     'sin': 'sin',
     'slk': 'slk',
-    'slk_frak': 'slk',
+    # 'slk_frak': 'slk',  # Not available in Tesseract 4
     'slv': 'slv',
     'snd': 'snd',
     'spa': 'spa',
@@ -138,7 +137,7 @@ TESSERACT = {
     'tat': 'tat',
     'tel': 'tel',
     'tgk': 'tgk',
-    'tgl': 'tgl',
+    # 'tgl': 'tgl',  # Not available in Tesseract 4
     'tha': 'tha',
     'tir': 'tir',
     'ton': 'ton',
@@ -153,8 +152,12 @@ TESSERACT = {
     'yor': 'yor'
 }
 
+
+"""A comprehensive list of the scripts supported by Tesseract 4
+and their corresponding ISO 639-2/T language codes.
+"""
 SCRIPTS = {
-    'Arabic': {'ara', 'fas', 'kur', 'pus', 'snd', 'uig', 'urd'},
+    'Arabic': {'ara', 'fas', 'kur_ara', 'pus', 'snd', 'uig', 'urd'},
     'Armenian': {'hye'},
     'Bengali': {'asm', 'ben'},
     'Canadian_Aboriginal': {},
@@ -166,7 +169,12 @@ SCRIPTS = {
     },
     'Devanagari': {'hin', 'mar', 'nep', 'san'},
     'Ethiopic': {'amh', 'tir'},
-    'Fraktur': {'dan_frak', 'frk', 'slk_frak'},  # Variant of Latin
+    'Fraktur': {  # Variant of Latin script
+        # 'dan_frak',
+        # 'deu_frak',
+        'frk',
+        # 'slk_frak'
+    },
     'Georgian': {'kat', 'kat_old'},
     'Greek': {'ell', 'grc'},
     'Gujarati': {'guj'},  # Variant of Devanagari
@@ -193,7 +201,8 @@ SCRIPTS = {
         'fry', 'gla', 'gle', 'glg', 'hat', 'hrv', 'hun', 'iku', 'ind', 'isl',
         'ita', 'ita_old', 'jav', 'kmr', 'lat', 'lav', 'lit', 'ltz', 'mlt',
         'mri', 'msa', 'nld', 'nor', 'oci', 'pol', 'por', 'que', 'ron', 'slk',
-        'slv', 'spa', 'spa_old', 'sun', 'sqi', 'srp_latn', 'swa', 'swe', 'tgl',
+        'slv', 'spa', 'spa_old', 'sun', 'sqi', 'srp_latn', 'swa', 'swe',
+        # 'tgl',  # Not available in Tesseract 4
         'ton', 'tur', 'uzb', 'vie', 'yor'
     },
     'Malayalam': {'mal'},
@@ -208,6 +217,17 @@ SCRIPTS = {
     'Tibetan': {'bod', 'dzo'},
     'Vietnamese': {}
 }
+
+
+def memoize(f):
+    """Memoizes the single-argument function `f`."""
+    d = dict()
+    def memoized(x):
+        if x in d:
+            return d[x]
+        d[x] = f(x)
+        return d[x]
+    return memoized
 
 
 def inverse(d: dict) -> Dict[Any, set]:
@@ -228,3 +248,31 @@ def iso_639_3_to_tess(langcode: str) -> Set[str]:
         tesseract_inverse = inverse(TESSERACT)
         iso_639_3_to_tess.tesseract_inverse = tesseract_inverse
     return tesseract_inverse[langcode]
+
+
+def bcp47_to_tess(bcp47, default):
+    """Converts the BCP-47-style language code `bcp47` to a language
+    code that is recognized by Tesseract.
+    Returns `default` if no such language code exists.
+    """
+    base_bcp47 = bcp47.split('-')[0]
+    if len(base_bcp47) == 2:
+        language = pycountry.languages.get(alpha_2=base_bcp47)
+        if language is None:
+            print("WARNING: No language found corresponding to " + base_bcp47)
+            return default
+        iso_639_3 = language.alpha_3
+    else:
+        iso_639_3 = base_bcp47
+    # Heuristic: Often, the language with the shortest langcode
+    # is the one without modifiers and therefore probably the
+    # most common or general one. For instance 'ita' is more
+    # common and general than 'ita_old'.
+    try:
+        possibilities = iso_639_3_to_tess(iso_639_3)
+    except KeyError:
+        return default
+    return (
+        min(possibilities, key=lambda language: len(language))
+        if possibilities else default
+    )

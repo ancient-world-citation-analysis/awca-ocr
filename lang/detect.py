@@ -7,7 +7,7 @@ These are convenience functions for special use cases that CLD3 does
 not explicitly address.
 """
 
-# FIXME: Do not feed URLS, emails, etc. into gcld3.
+# FIXME: Do not feed URLs, emails, etc. into gcld3.
 DEFAULT_NNLI = gcld3.NNetLanguageIdentifier(1, 700)
 
 LinguisticUnit = str

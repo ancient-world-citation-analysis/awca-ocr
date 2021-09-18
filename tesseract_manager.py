@@ -1,11 +1,12 @@
 from typing import Any, Generic, Hashable, Iterable, Optional, Sequence, \
-    TypeVar, Tuple
+    TypeVar, Tuple, List, Optional
 import pytesseract
 from pytesseract import TesseractError
 from gcld3 import NNetLanguageIdentifier
-from PIL import Image
+from PIL import Image, ImageDraw
 import lang
 import lang.langcodes
+import lang.detect
 import pycountry
 import os
 import fitz
@@ -42,7 +43,8 @@ class WeightTracker(Generic[Item]):
         presorted: bool = True,
         r: float = 0.5
     ):
-        """Initializes a WeightTracker that tracks the weights of ITEMS.
+        """Initializes a `WeightTracker` that tracks the weights of
+        `items`.
         :param items: the items whose weights are to be tracked
         :param presorted: whether `items` is presorted in order of
             DECREASING expected importance
@@ -61,7 +63,7 @@ class WeightTracker(Generic[Item]):
         }
 
     def add_weight(self, item: Item):
-        """Increases the weight given to ITEM and re-orders the items by
+        """Increases the weight given to `item` and re-orders the items by
         weight.
         """
         self.weights = {item: self.weights[item]
@@ -78,7 +80,7 @@ COMMON_LANGUAGES = [
 
 
 class Text:
-    """Describes a single text that includes a coherent set of characteristics,
+    """Describes a single text with a coherent set of characteristics,
     such as language used.
     """
     global_possible_languages = COMMON_LANGUAGES + list(filter(
@@ -122,14 +124,15 @@ class Text:
     # This is a hack: The justification is empirical, not theoretical. I have
     # found that there exist at least some documents that can be processed with
     # much greater accuracy if their images are scaled by a factor of 2. The
-    # is that the program runs significantly slower: It seems to be slowed by
-    # a constant factor of perhaps 2 or 3.
+    # cost is that the program runs significantly slower: It seems to be slowed
+    # by a constant factor of perhaps 2 or 3.
     default_image_scale = 1.75
     alternate_image_scales = (2, 4)
     word_height_range = (14, 17)
     target_word_height = 15.5
     target_mean_conf = 90
     max_unreadable = 5
+    max_n_foreign_words = 15
 
     def __init__(
         self,
@@ -189,6 +192,7 @@ class Text:
             if second_languages is None else second_languages
         )
         self.verbose = verbose
+        self.annotator = lang.detect.get_language_annotator()
         self.texts = list()
         self.metadata = list()
         self.orientations = list()
@@ -311,12 +315,12 @@ class Text:
 
     def _osd_assisted_analysis(
         self,
-        image: Image,
-        max_n_languages: int = 4
+        image: Image
     ) -> Tuple[float, str, pd.DataFrame]:
         """Returns the orientation, language, and metadata produced from
         analyzing `image` with orientation and script detection. Throws
         `TesseractError` or `ManagerError` upon failure.
+        :param image: The image to be analyzed.
         """
         osd_result = osd(image)
         image = image.rotate(osd_result['Orientation in degrees'], expand=True)
@@ -328,26 +332,56 @@ class Text:
             if language in poss_languages:
                 return (osd_result['Orientation in degrees'], language,
                         data(image, language))
+        raise ManagerError(
+            'There exists no language known to this Text instance that '
+            'corresponds to the script "{}".'.format(osd_result['Script'])
+        )
 
     def _final_pass_analysis(
         self,
         metadata: pd.DataFrame,
         page: fitz.Page,
-        language_guess: str,
+        language_used: str,
         scale_used: float,
-        orientation_used: float
+        orientation_used: float,
+        words_to_erase: Optional[pd.DataFrame] = None,
+        max_depth: int = 5
     ) -> Tuple[pd.DataFrame, str, float]:
         """Returns the metadata, language, and image scale
         factor produced from analyzing `page` with optimal language
         and image scale factor.
+        :param metadata: The preceding analysis of the text over which we
+            would like to to another pass. This is returned if further
+            work is unnecessary or unsuccessful.
+        :param page: The page to be analyzed.
+        :param language_used: The language that was assumed to be the
+            page's dominant language in the generation of `metadata`.
+        :param scale_used: The image scaling factor used in the
+            generation of `metadata`.
+        :param orientation_used: The image orientation used in the
+            generation of `metadata`.
+        :param words_to_erase: The words that should be ignored in this
+            analysis, including their positions and shapes.
+        :param max_depth: The max recursion depth for this function.
         """
         median_height = metadata.height.median()
-        language = detected_language(data_to_string(metadata.text))
-        if language != language_guess or (
-            mean_conf(metadata) < self.target_mean_conf
-            and not (
-                self.word_height_range[0] <= median_height <=
-                self.word_height_range[1]
+        language = detected_language(
+            data_to_string(metadata.text),
+            default=language_used
+        )
+        if not max_depth:
+            print(
+                'WARNING: Failed to complete final pass of analysis on the '
+                'text:\n{}.'.format(data_to_string(metadata.text))
+            )
+        elif (
+            language != language_used
+            or (
+                mean_conf(metadata) < self.target_mean_conf
+                and not (
+                    self.word_height_range[0] <= median_height <=
+                    self.word_height_range[1]
+                )
             )
         ):
             optimal_scale = (
@@ -355,18 +389,55 @@ class Text:
             )
             if self.verbose:
                 print('Retrying. Language={}, scale={:.4f}'.format(
-                    language, optimal_scale))
-            result = data(
-                image_from_page(
-                    page, scale=optimal_scale
-                ).rotate(  # type: ignore
-                    orientation_used, expand=True
-                ),
-                language
+                    language, optimal_scale
+                ))
+            image = image_from_page(
+                page, scale=optimal_scale
+            ).rotate(  # type: ignore
+                orientation_used, expand=True
             )
+            if words_to_erase is not None:
+                erase_words(image, words_to_erase, optimal_scale)
+            result = data(image, language)
             if mean_conf(result) > mean_conf(metadata):
                 metadata = result
                 scale_used = optimal_scale
+            # Filter out "words" that are likely non-textual
+            metadata = metadata[  # FIXME: 2 is a magic number
+                (metadata.height < 2 * median_height)
+                & [isinstance(word, str) for word in metadata.text]
+            ]
+            annotations = [
+                lang.langcodes.bcp47_to_tess(annotation, language)
+                for annotation in self.annotator(metadata.text)
+            ]
+            was_wrong_lang = [
+                annotation != language for annotation in annotations
+            ]
+            if sum(was_wrong_lang) > self.max_n_foreign_words:
+                if self.verbose:
+                    print('The following text has mixed languages:\n{}'.format(
+                        inline_annotations(metadata.text, annotations)
+                    ))
+                wrong_lang_metadata = metadata[was_wrong_lang]
+                metadata = metadata[[not x for x in was_wrong_lang]]
+                other_languages_metadata, other_language, _ = \
+                    self._final_pass_analysis(
+                        wrong_lang_metadata,
+                        page,
+                        language,
+                        optimal_scale,
+                        orientation_used,
+                        (
+                            metadata if words_to_erase is None
+                            else pd.concat([metadata, words_to_erase])
+                        ),
+                        max_depth - 1
+                    )
+                # FIXME: Place the results in context according to location
+                # instead of simply appending them to the end
+                metadata = pd.concat([metadata, other_languages_metadata])
+                language = '{},{}'.format(language, other_language)
         return metadata, language, scale_used
 
     def _correct(self, image: Image, metadata: pd.DataFrame, min_conf: float):
@@ -405,12 +476,60 @@ class Text:
         metadata['corrected'] = metadata.apply(corrector, axis=1)
 
     def save(self):
+        self.annotator = None  # Null this out -- it need not be saved
         with open(os.path.join(self.out, 'analysis.pickle'), 'wb') as dbfile:
             pickle.dump(self, dbfile)
 
 
-class ManagerError(Exception):
+class ManagerError(Exception):  # TODO: Rename. "Manager" is a meaningless word.
     pass
+
+
+def by_frequency(items: Iterable[Any]) -> List[Any]:
+    """Returns `items` in decreasing order by frequency, without
+    repetitions.
+    """
+    frequencies = dict()
+    ret = list()
+    for item in items:
+        frequencies[item] = frequencies.get(item, 0) + 1
+        if item not in ret:
+            ret.append(item)
+    return sorted(ret, key=lambda item: -frequencies[item])
+
+
+def erase_words(img: Image, data: pd.DataFrame, scale: float = 1):
+    """Erases the words that appear in `data` from `img`.
+    :param img: the image to mutate
+    :param data: the Tesseract-generated metadata produced from analyzing
+        `img`
+    :param scale: the factor by which `img` was scaled since `data` was
+        produced
+    """
+    d = ImageDraw.Draw(img)
+    def erase_word(word):
+        d.rectangle(
+            (
+                word.left * scale,
+                word.top * scale,
+                (word.left + word.width) * scale,
+                (word.top + word.height) * scale
+            ),
+            fill='#fff'
+        )
+    data.apply(erase_word, axis=1)
+
+
+def inline_annotations(words: Sequence[str], annotations: Sequence[str]) -> str:
+    """Pairs strings with annotations and presents them in a
+    human-readable format.
+    :param words: a sequence of words
+    :param annotations: the annotations corresponding to `words`
+    """
+    return ' '.join(
+        f'{word}->{annotation}'
+        for word, annotation in list(zip(words, annotations))
+    )
 
 
 def detected_language(
@@ -429,29 +548,10 @@ def detected_language(
     if not text.strip():
         return default
     result = nnli.FindLanguage(text)
+    # TODO: Experiment with setting a higher bar than 0 for result.probability.
     if not result.probability:
         return default
-    base_bcp47 = result.language.split('-')[0]
-    if len(base_bcp47) == 2:
-        language = pycountry.languages.get(alpha_2=base_bcp47)
-        if language is None:
-            print("DEBUG: No language found corresponding to " + base_bcp47)
-            return default
-        iso_639_3 = language.alpha_3
-    else:
-        iso_639_3 = result.language
-    # Heuristic: Often, the language with the shortest langcode
-    # is the one without modifiers and therefore probably the
-    # most common or general one. For instance 'ita' is more
-    # common and general than 'ita_old'.
-    try:
-        possibilities = lang.langcodes.iso_639_3_to_tess(iso_639_3)
-    except KeyError:
-        return default
-    return (
-        min(possibilities, key=lambda language: len(language))
-        if possibilities else default
-    )
+    return lang.langcodes.bcp47_to_tess(result.language, default)
 
 
 def image_from_page(page: fitz.Page, scale: float = 1) -> Image:
