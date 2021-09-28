@@ -56,7 +56,7 @@ Steps:
   -e ~/Documents/awca/awca-ocr/tesstrain/tesseract/tessdata/best/ces.traineddata \
   ~/Documents/awca/awca-ocr/tesstrain/train_plain_ces_from_full/ces.lstm
 
-* The following will create the training files that we actually want. Note that it is necessary to first replace the contents of langdata/ces/ces.training_text with the desired training text.
+* The following will create the training files that we want. Note that it is necessary to first replace the contents of langdata/ces/ces.training_text with the desired training text.
   src/training/tesstrain.sh \
   --fonts_dir /usr/share/fonts \
   --lang ces \
@@ -64,12 +64,23 @@ Steps:
   --noextract_font_properties \
   --langdata_dir ../langdata \
   --tessdata_dir ./tessdata \
-  --output_dir ../translit \
+  --output_dir ../translit2 \
   --fontlist "Abyssinica SIL" "Andale Mono" "AnjaliOldLipi" "Arial" "Arial Black" "Arial Bold" "Arial Bold Italic" "Arial Italic" "C059" "C059 Bold" "C059 Bold Italic" "C059 Italic" "Chilanka" "Comic Sans MS" "Comic Sans MS Bold" "Courier New" "Courier New Bold" "Courier New Bold Italic" "Courier New Italic" "D050000L" "DejaVu Math TeX Gyre" "DejaVu Sans" "DejaVu Sans Bold" "DejaVu Sans Bold Oblique" "DejaVu Sans Bold Oblique Semi-Condensed" "DejaVu Sans Bold Semi-Condensed" "DejaVu Sans Mono" "DejaVu Sans Mono Bold" "DejaVu Sans Mono Bold Oblique" "DejaVu Sans Mono Oblique" "DejaVu Sans Oblique" "DejaVu Sans Oblique Semi-Condensed" "DejaVu Sans Semi-Condensed" "DejaVu Sans Ultra-Light" "DejaVu Serif" "DejaVu Serif Bold" "DejaVu Serif Bold Italic" "DejaVu Serif Bold Italic Semi-Condensed" "DejaVu Serif Bold Semi-Condensed" "DejaVu Serif Italic" "DejaVu Serif Italic Semi-Condensed" "DejaVu Serif Semi-Condensed" "Dyuthi" "FreeMono" "FreeMono Bold" "FreeMono Bold Italic" "FreeMono Italic" "FreeSans" "FreeSans Italic" "FreeSans Semi-Bold" "FreeSans Semi-Bold Italic" "FreeSerif" "FreeSerif Bold" "FreeSerif Bold Italic" "FreeSerif Italic" "Garuda" "Garuda Bold" "Garuda Bold Oblique" "Garuda Oblique" "Gayathri" "Gayathri Bold" "Gayathri Thin" "Georgia" "Georgia Bold" "Georgia Bold Italic" "Georgia Italic" "Hack" "Hack Bold" "Hack Bold Italic" "Hack Italic" "Impact Condensed" "Karumbi" "Keraleeyam" "Khmer OS" "Khmer OS System" "Kinnari" "Kinnari Bold" "Kinnari Bold Italic" "Kinnari Bold Oblique" "Kinnari Italic" "Kinnari Oblique" "Laksaman" "Laksaman Bold" "Laksaman Bold Italic" "Laksaman Italic" "Liberation Mono" "Liberation Mono Bold" "Liberation Mono Bold Italic" "Liberation Mono Italic" "Liberation Sans" "Liberation Sans Bold" "Liberation Sans Bold Italic" "Liberation Sans Italic" "Liberation Sans Narrow Bold Condensed" "Liberation Sans Narrow Bold Italic Condensed" "Liberation Sans Narrow Condensed" "Liberation Sans Narrow Italic Condensed" "Liberation Serif" "Liberation Serif Bold" "Liberation Serif Bold Italic" "Liberation Serif Italic" "Loma" "Loma Bold" "Loma Bold Oblique" "Loma Oblique" "Manjari" "Manjari Bold" "Manjari Thin" "Meera" "Nakula" "Nimbus Mono PS" "Nimbus Mono PS Bold" "Nimbus Mono PS Bold Italic" "Nimbus Mono PS Italic" "Nimbus Roman" "Nimbus Roman, Bold" "Nimbus Roman, Bold Italic" "Nimbus Roman, Italic" "Nimbus Sans" "Nimbus Sans Bold" "Nimbus Sans Bold Italic" "Nimbus Sans Italic" "Nimbus Sans Narrow Bold Oblique Semi-Condensed" "Nimbus Sans Narrow Bold Semi-Condensed" "Nimbus Sans Narrow Oblique Semi-Condensed" "Nimbus Sans Narrow Semi-Condensed" "Norasi" "Norasi Bold" "Norasi Bold Italic" "Norasi Bold Oblique" "Norasi Italic" "Norasi Oblique" "Noto Mono" "Noto Sans CJK HK" "Noto Sans CJK HK Bold" "Noto Sans CJK JP" "Noto Sans CJK JP Bold" "Noto Sans CJK KR" "Noto Sans CJK KR Bold" "Noto Sans CJK SC" "Noto Sans CJK SC Bold" "Noto Sans CJK TC" "Noto Sans CJK TC Bold" "Noto Sans Mono CJK HK" "Noto Sans Mono CJK HK Bold" "Noto Sans Mono CJK JP" "Noto Sans Mono CJK JP Bold" "Noto Sans Mono CJK KR" "Noto Sans Mono CJK KR Bold" "Noto Sans Mono CJK SC" "Noto Sans Mono CJK SC Bold" "Noto Sans Mono CJK TC" "Noto Sans Mono CJK TC Bold" "Noto Serif CJK JP" "Noto Serif CJK JP Bold" "Noto Serif CJK KR" "Noto Serif CJK KR Bold" "Noto Serif CJK SC" "Noto Serif CJK SC Bold" "Noto Serif CJK TC" "Noto Serif CJK TC Bold" "P052" "P052 Bold" "P052 Bold Italic" "P052 Italic" "Padauk" "Padauk Bold" "Padauk Book" "Padauk Book, Bold" "Phetsarath OT" "Purisa" "Purisa Bold" "Purisa Bold Oblique" "Purisa Oblique" "Rachana" "Rasa" "Rasa Bold" "Rasa Light" "Rasa Medium" "Rasa Semi-Bold" "Sahadeva" "Sawasdee" "Sawasdee Bold" "Sawasdee Bold Oblique" "Sawasdee Oblique" "Standard Symbols PS" "Symbola Semi-Condensed" "Tibetan Machine Uni" "Times New Roman" "Times New Roman, Bold" "Times New Roman, Bold Italic" "Times New Roman, Italic" "Tlwg Mono" "Tlwg Mono Bold" "Tlwg Mono Bold Oblique" "Tlwg Mono Oblique" "Tlwg Typewriter" "Tlwg Typewriter Bold" "Tlwg Typewriter Bold Oblique" "Tlwg Typewriter Oblique" "Tlwg Typist" "Tlwg Typist Bold" "Tlwg Typist Bold Oblique" "Tlwg Typist Oblique" "Tlwg Typo" "Tlwg Typo Bold" "Tlwg Typo Bold Oblique" "Tlwg Typo Oblique" "Trebuchet MS" "Trebuchet MS Bold" "Trebuchet MS Bold Italic" "Trebuchet MS Italic" "URW Bookman Light" "URW Bookman Light Italic" "URW Bookman Semi-Bold" "URW Bookman Semi-Bold Italic" "URW Gothic" "URW Gothic Oblique" "URW Gothic Semi-Bold" "URW Gothic Semi-Bold Oblique" "Ubuntu" "Ubuntu Bold" "Ubuntu Bold Italic" "Ubuntu Condensed" "Ubuntu Italic" "Ubuntu Light" "Ubuntu Light Italic" "Ubuntu Medium" "Ubuntu Medium Italic" "Ubuntu Mono" "Ubuntu Mono Bold" "Ubuntu Mono Bold Italic" "Ubuntu Mono Italic" "Ubuntu weight=255" "Umpush" "Umpush Bold" "Umpush Bold Oblique" "Umpush Light" "Umpush Light Oblique" "Umpush Oblique" "Uroob" "Verdana" "Verdana Bold" "Verdana Bold Italic" "Verdana Italic" "Waree" "Waree Bold" "Waree Bold Oblique" "Waree Oblique" "Webdings" "Yrsa" "Yrsa Bold" "Yrsa Light" "Yrsa Medium" "Yrsa Semi-Bold" "Z003 Medium Italic" "padmaa-Bold.1.1 Bold"
 * Warning: The training files take days to create, even with several threads working on all available cores, and they
   consume an enormous amount of space. For reference, when I used the ur-iii text, which is on the order of 14 MB
   (something like that), it was going to use roughly 45 GB of disk space in the /tmp/ directory, and so I had to kill the
   process. Going forward I will break the text into chunks (eighths).
+
+src/training/tesstrain.sh \
+  --fonts_dir /usr/share/fonts \
+  --lang ces \
+  --linedata_only \
+  --noextract_font_properties \
+  --langdata_dir ../langdata \
+  --tessdata_dir ./tessdata \
+  --output_dir ../translit1 \
+  --fontlist "Nimbus Roman, Bold" "Nimbus Roman, Bold Italic" "Nimbus Roman, Italic" "Padauk Book, Bold" "Times New Roman, Bold" "Times New Roman, Bold Italic" "Times New Roman, Italic" "Tlwg Mono Oblique" "Tlwg Typewriter" "Tlwg Typewriter Bold" "Tlwg Typewriter Bold Oblique" "Tlwg Typewriter Oblique" "Tlwg Typist" "Tlwg Typist Bold" "Tlwg Typist Bold Oblique" "Tlwg Typist Oblique" "Tlwg Typo" "Tlwg Typo Bold" "Tlwg Typo Bold Oblique" "Tlwg Typo Oblique" "Trebuchet MS" "Trebuchet MS Bold" "Trebuchet MS Bold Italic" "Trebuchet MS Italic" "URW Bookman Light" "URW Bookman Light Italic" "URW Bookman Semi-Bold" "URW Bookman Semi-Bold Italic" "URW Gothic" "URW Gothic Oblique" "URW Gothic Semi-Bold" "URW Gothic Semi-Bold Oblique" "Ubuntu" "Ubuntu Bold" "Ubuntu Bold Italic" "Ubuntu Condensed" "Ubuntu Italic" "Ubuntu Light" "Ubuntu Light Italic" "Ubuntu Medium" "Ubuntu Medium Italic" "Ubuntu Mono" "Ubuntu Mono Bold" "Ubuntu Mono Bold Italic" "Ubuntu Mono Italic" "Ubuntu weight=255" "Umpush" "Umpush Bold" "Umpush Bold Oblique" "Umpush Light" "Umpush Light Oblique" "Umpush Oblique" "Uroob" "Verdana" "Verdana Bold" "Verdana Bold Italic" "Verdana Italic" "Waree" "Waree Bold" "Waree Bold Oblique" "Waree Oblique" "Webdings" "Yrsa" "Yrsa Bold" "Yrsa Light" "Yrsa Medium" "Yrsa Semi-Bold" "Z003 Medium Italic"
+
 
 The following will create the eval files that we want. Before running it, you will have to swap out the sample text file at
 tesstrain/langdata/ces/ces.training_text.
@@ -89,16 +100,33 @@ src/training/tesstrain.sh \
     "Times New Roman" "Times New Roman, Bold" "Times New Roman, Italic" \
     "Verdana" "Verdana Italic"
 
-* The following command will create the model that we actually want:
+* The following command will create the model that we want:
   src/training/lstmtraining \
-  --model_output ../train_translit/checkpoints/translit \
-  --continue_from ~/Documents/awca/awca-ocr/tesstrain/train_translit/checkpoints/ces.lstm \
-  --traineddata ~/Documents/awca/awca-ocr/tesstrain/train_translit/ces/ces.traineddata \
+  --model_output   ../translit/checkpoints/translit \
+  --max_image_MB 1000 \
+  --continue_from  ../translit/checkpoints/ces.lstm \
+  --traineddata    ../translit/ces/ces.traineddata \
   --old_traineddata tessdata/best/ces.traineddata \
-  --train_listfile ~/Documents/awca/awca-ocr/tesstrain/train_translit/ces.training_files.txt \
+  --train_listfile ../translit/ces.training_files.txt \
+  --eval_listfile  ../translit_eval/ces.training_files.txt \
   --max_iterations 3600
 
-  sudo training/lstmtraining --stop_training \
-  --continue_from ~/Documents/awca/awca-ocr/tesstrain/train_plain_ces/plain_ces_checkpoint \
-  --traineddata ~/Documents/awca/awca-ocr/tesstrain/train_plain_ces/ces/ces.traineddata \
-  --model_output /usr/local/share/tessdata/ces2.traineddata
+  src/training/lstmtraining \
+  --debug_interval -1 \
+  --max_image_MB 1000 \
+  --traineddata    ../translit/ces/ces.traineddata \
+  --net_spec '[1,36,0,1 Ct3,3,16 Mp3,3 Lfys48 Lfx96 Lrx96 Lfx256 O1c143]' \
+  --model_output   ../translit/checkpoints/translit_from_scratch \
+  --train_listfile ../translit/ces.training_files.txt \
+  --eval_listfile  ../translit_eval/ces.training_files.txt \
+  --max_iterations 5000 &>../training_output5.txt
+
+  sudo src/training/lstmtraining --stop_training \
+  --continue_from ../translit/checkpoints/translit_checkpoint \
+  --traineddata ../translit/ces/ces.traineddata \
+  --model_output /usr/local/share/tessdata/translit.traineddata
+
+* This completes the evaluation:
+src/training/lstmeval --model ../translit/checkpoints/translit_checkpoint \
+  --traineddata ../translit/ces/ces.traineddata \
+  --eval_listfile ../translit_eval/ces.training_files.txt
