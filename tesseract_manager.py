@@ -593,7 +593,7 @@ def mean_conf(metadata: pd.DataFrame) -> float:
     if metadata is None:
         return 0
     valid_confs = metadata.conf[(metadata.conf >= 0) & pd.array([
-        (not pd.isna(text) and (text.strip() != '')) for text in metadata.text
+        (isinstance(text, str) and (text.strip() != '')) for text in metadata.text
     ])]
     return valid_confs.mean() if len(valid_confs.index) > 0 else 0
 
