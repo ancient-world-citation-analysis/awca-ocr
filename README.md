@@ -23,7 +23,6 @@ Here are some resources:
   * Three 400-page development sets: [sample 0](https://drive.google.com/file/d/19OQOaOqkOJTCBwS7829HHMqscgMxqUKH/view?usp=sharing), [sample 1](https://drive.google.com/file/d/1KCTdlQWOB2Nyn06EW7UW7BTZhHDYJhGm/view?usp=sharing), and [sample 2](https://drive.google.com/file/d/1bWlORa_P_dCKZhgmjumQ_uhh_C2uo_Xy/view?usp=sharing).
   * [A spreadsheet with data about the 1600-page PDF](https://docs.google.com/spreadsheets/d/1w-eGo7Rep4QbhUl5yfNXdrHs_yOqRhpn7XmwICC9CXg/edit?usp=sharing), including which pages are from PDFs that are also represented in the development sets. This spreadsheet is a source of statistics about our corpus that may guide decisionmaking for OCR.
   * [Training data for tesseract](https://drive.google.com/drive/folders/1-URSGgpsxAv5F6TQiczHXxOIMNkzr4ea?usp=sharing), and other Tesseract-related files.
-* These files and others that are challenging to include in version control can be found in [this Google Drive folder](https://drive.google.com/drive/folders/1LzyISLJ9Oh3NFr2wg3CypAItEktig_ji?usp=sharing), the contents of which are a superset of the contents of this repo.
 
 Here are some tips:
 * If you must use Windows instead of a Unix-like system, you may wish to use a platform such as WSL or VMware Workstation (or even Google Drive and Colab) that will enable you to emulate that environment. This is because
