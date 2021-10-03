@@ -219,6 +219,22 @@ SCRIPTS = {
 }
 
 
+"""A (possibly non-comprehensive) mapping from deprecated ISO codes
+that may appear in BCP-47 to the shortest available non-deprecated
+ISO codes (avoiding 639-2/B).
+"""
+DEPRECATED_TO_CURRENT = {
+    'bh': 'bih' # Bihari. There is no acceptable 2-letter code.
+    'in': 'id'  # Indonesian
+    'iw': 'he'  # Hebrew
+    'ji': 'yi'  # Yiddish
+    'jw': 'jv'  # Javanese
+    'mo': 'ro'  # Moldovan
+    'sh': 'sr'  # Serbo-Croatian -> Serbian. Not quite right,
+                # but the closest approximation possible.
+}
+
+
 def memoize(f):
     """Memoizes `f`, a function with one argument.
     """
@@ -260,7 +276,8 @@ def bcp47_to_tess(bcp47, default):
     code that is recognized by Tesseract.
     Returns `default` if no such language code exists.
     """
-    base_bcp47 = bcp47.split('-')[0]
+    base_bcp47 = bcp47.split('-')[0].lower()
+    base_bcp47 = DEPRECATED_TO_CURRENT.get(base_bcp47, base_bcp47)
     if len(base_bcp47) == 2:
         language = pycountry.languages.get(alpha_2=base_bcp47)
         if language is None:
