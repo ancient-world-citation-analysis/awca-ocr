@@ -232,7 +232,7 @@ class Text:
         if (
             total_image_area(page) / page.bound().getArea()
             < self.image_area_thresh
-            and not len([a for a in original_text if a == '�'])
+            and not len([a for a in original_text if a == 'ï¿½'])
             > self.max_unreadable
         ):
             metadata, orientation_used, scale = None, None, None
@@ -306,7 +306,6 @@ class Text:
                 except (TesseractError, ManagerError) as e:
                     warnings.warn('OCR failed: ' + str(e))
         # What follows is a final pass with optimal text size and language
-        # TODO: Factor all of the following out.
         metadata, language, scale_used = \
             self._final_pass_analysis(
                 metadata, page, language_guess, scale_used, orientation_used
@@ -364,7 +363,7 @@ class Text:
             analysis, including their positions and shapes.
         :param max_depth: The max recursion depth for this function.
         """
-        median_height = metadata.height.median()
+        median_height = metadata[is_text(metadata.text)].height.median()
         language = detected_language(
             data_to_string(metadata.text),
             default=language_used
@@ -378,6 +377,7 @@ class Text:
             language != language_used
             or (
                 mean_conf(metadata) < self.target_mean_conf
+                and median_height
                 and not (
                     self.word_height_range[0] <= median_height <=
                     self.word_height_range[1]
@@ -386,7 +386,7 @@ class Text:
         ):
             optimal_scale = (
                 scale_used * self.target_word_height / median_height
-            )
+            ) if median_height else scale_used
             if self.verbose:
                 print('Retrying. Language={}, scale={:.4f}'.format(
                     language, optimal_scale
@@ -592,10 +592,17 @@ def mean_conf(metadata: pd.DataFrame) -> float:
     """
     if metadata is None:
         return 0
-    valid_confs = metadata.conf[(metadata.conf >= 0) & pd.array([
-        (isinstance(text, str) and (text.strip() != '')) for text in metadata.text
-    ])]
+    valid_confs = metadata.conf[(metadata.conf >= 0) & is_text(metadata.text)]
     return valid_confs.mean() if len(valid_confs.index) > 0 else 0
+
+
+def is_text(s: Iterable[str]) -> pd.array:
+    """Returns a boolean array indicating which elements of `s` are
+    text.
+    """
+    return pd.array([
+        (isinstance(text, str) and (text.strip() != '')) for text in s
+    ])
 
 
 def osd(image: Image) -> dict:
