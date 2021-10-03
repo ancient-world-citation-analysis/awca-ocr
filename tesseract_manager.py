@@ -378,6 +378,7 @@ class Text:
             or (
                 mean_conf(metadata) < self.target_mean_conf
                 and median_height
+                and not pd.isna(median_height)
                 and not (
                     self.word_height_range[0] <= median_height <=
                     self.word_height_range[1]
