@@ -212,7 +212,7 @@ class Text:
                 print('{} out of {} pages analyzed in {:.2f} seconds...'
                       ''.format(i, len(document), time.time() - t0))
             self._analyze_page(page)
-        os.mkdir(self.out)
+        os.makedirs(self.out, exist_ok=True)
         pd.DataFrame(data={
             'text': self.texts,
             'orientation': self.orientations,
