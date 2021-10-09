@@ -103,3 +103,31 @@ SIMILARITY: Callable[[int], Callable] = lambda n: lambda a, b: (
         n_gram_counter(n, _IS_NGRAM)(TOKENIZER(CANONICALIZER(b)))
     )
 )
+WEIGHTED_SIMILARITY: Callable[
+    [int],
+    Callable[
+        [Iterable[str], Iterable[str]],
+        float
+    ]
+] = lambda n: (  # n = size of an n-gram
+    (
+        # similarity = (string x string -> float) similarity function
+        # weight = (string -> float) weight function
+        # Both functions are cached in the environment for performance
+        lambda similarity, weight: (
+            # truth and check are iterables of strings. This lambda is
+            # the returned function.
+            lambda truth, check: (
+                # Shadow the parent frame's truth with a truth that can
+                # be iterated over multiple times (so, saved in a list)
+                lambda truth: (
+                    # Cache weights in a parent frame
+                    lambda weights: sum(
+                        similarity(a, b) * weight
+                        for a, b, weight in zip(truth, check, weights)
+                    ) / sum(weights)
+                )([weight(a) for a in truth])
+            )(list(truth))
+        )
+    )(SIMILARITY(n), lambda text: len(TOKENIZER(text)))
+)
