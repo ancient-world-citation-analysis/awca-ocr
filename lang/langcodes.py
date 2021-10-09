@@ -224,7 +224,7 @@ that may appear in BCP-47 to the shortest available non-deprecated
 ISO codes (avoiding 639-2/B).
 """
 DEPRECATED_TO_CURRENT = {
-    'bh': 'bih', # Bihari. There is no acceptable 2-letter code.
+    'bh': 'bih',  # Bihari. There is no acceptable 2-letter code.
     'in': 'id',  # Indonesian
     'iw': 'he',  # Hebrew
     'ji': 'yi',  # Yiddish
