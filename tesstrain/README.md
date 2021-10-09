@@ -121,6 +121,19 @@ src/training/tesstrain.sh \
   --eval_listfile  ../translit_eval/ces.training_files.txt \
   --max_iterations 5000 &>../training_output5.txt
 
+  src/training/lstmtraining \
+  --debug_interval -1 \
+  --max_image_MB 1000 \
+  --traineddata    ../translit2/ces/ces.traineddata \
+  --continue_from  ../translit/checkpoints/ces.lstm \
+  --append_index 5 \
+  --net_spec '[Lfx256 O1c111]' \
+  --model_output   ../translit2/checkpoints/translit_new_layers \
+  --train_listfile ../translit2/ces.training_files.txt \
+  --eval_listfile  ../translit_eval/ces.training_files.txt \
+  --max_iterations 5000 &>../training_output6.txt
+
+
   sudo src/training/lstmtraining --stop_training \
   --continue_from ../translit/checkpoints/translit_checkpoint \
   --traineddata ../translit/ces/ces.traineddata \
