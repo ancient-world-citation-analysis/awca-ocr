@@ -14,7 +14,13 @@ Text(src, out).save_ocr()
 
 The output directory will then contain two files:
 * A CSV file containing text and page-level data extracted from the PDF
-* The `Text` instance that you created. This object includes the same information as the CSV, as well as word-level metadata.
+* A pickle containing the serialized `Text` instance that you created. This object includes the same information as the CSV, as well as word-level metadata.
+
+# Dependencies
+* `tesseract-ocr-all`. On Linux and Google Colab, this can be installed using `apt-get install tesseract-ocr-all`.
+* Protobufs. On Linux and Google Colab, this can be installed using `apt-get install protobuf-compiler libprotobuf-dev`
+* Various Python packages. These can be installed by changing into this Git repository and running `pip install -r requirements.txt`.
+  * In Google Colab, `pip install -r reduced-requirements.txt` should be used instead. This is because many of the dependencies are pre-installed in Colab, and it is best not to install them again.
 
 # Developer Notes
 Here are some resources:
@@ -29,7 +35,6 @@ Here are some tips:
   * the package `gcld3` is not easy to install on Windows due to its dependency on protobufs, and
   * Tesseract 4 is not easy to install on Windows.
 * A [virtual environment](https://docs.python.org/3/tutorial/venv.html) might be useful.
-* Changing into this Git repository and running `pip install -r requirements.txt` should install all required packages.
 * Because Google Drive is being used to store datasets that are too large for a personal computer, it can be useful to access this repository via Google Colab. Because Colab notebooks essentially provide command-line access to a virtual machine (just precede commands with the symbols ! or %), it is convenient to use Git on Google Colab.
 
 Here are some gentle suggestions in order of decreasing importance.

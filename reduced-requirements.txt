@@ -1,0 +1,11 @@
+beautifulsoup4==4.9.3
+fonttools==4.26.2
+gcld3==3.0.13
+langdetect==1.0.9
+pycountry==20.7.3
+PyMuPDF==1.18.16
+pytesseract==0.3.8
+requests==2.26.0
+scipy==1.7.1
+soupsieve==2.2.1
+urllib3==1.26.6
