@@ -2,7 +2,6 @@ from typing import Any, Generic, Hashable, Iterable, Optional, Sequence, \
     TypeVar, Tuple, List, Optional
 import pytesseract
 from pytesseract import TesseractError
-from gcld3 import NNetLanguageIdentifier
 from PIL import Image, ImageDraw
 import lang
 import lang.langcodes
@@ -17,6 +16,7 @@ import csv
 import time
 import pickle
 import warnings
+from textprobability.classify import Classifier, default_classifier
 
 '''This module handles our interface with Tesseract. It must be
 remembered that Tesseract does all of the magic behind the
@@ -540,7 +540,7 @@ def inline_annotations(words: Sequence[str], annotations: Sequence[str]) -> str:
 def detected_language(
     text: str,
     default: str = 'eng',
-    nnli: NNetLanguageIdentifier = NNetLanguageIdentifier(1, 700)
+    language_classifier: Classifier = default_classifier
 ):
     """Returns the detected language of `text`, using the LangCode
     recognized by Tesseract (as described here:
@@ -552,11 +552,9 @@ def detected_language(
     """
     if not text.strip():
         return default
-    result = nnli.FindLanguage(text)
-    # TODO: Experiment with setting a higher bar than 0 for result.probability.
-    if not result.probability:
-        return default
-    return lang.langcodes.bcp47_to_tess(result.language, default)
+    result = language_classifier(text)
+    argmax = max(result, key=lambda langcode: result[langcode])
+    return lang.langcodes.bcp47_to_tess(argmax, default)
 
 
 def image_from_page(page: fitz.Page, scale: float = 1) -> Image:
