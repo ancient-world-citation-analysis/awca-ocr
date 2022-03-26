@@ -241,12 +241,16 @@ class Text:
             self.mean_confidences.append(None)
             used_original_text = True
         else:
-            metadata, orientation_used, language, scale = self._run_ocr(
-                page,
-                (detected_language(original_text)
-                 if len(original_text) >= self.text_len_thresh
-                 else self.languages.items[0])
-            )
+            try:
+                metadata, orientation_used, language, scale = self._run_ocr(
+                    page,
+                    (detected_language(original_text)
+                        if len(original_text) >= self.text_len_thresh
+                        else self.languages.items[0])
+                )
+            except Exception as e:
+                print(e)
+                metadata, orientation_used, language, scale = (None, None, None, None)
             if mean_conf(metadata) < self.coarse_thresh:
                 warnings.warn('Failed to analyze image.')
             self.texts.append(data_to_string(
@@ -576,7 +580,7 @@ def total_image_area(page: fitz.Page) -> int:
     the total computed area to exceed the actual area of the page.
     """
     return sum(
-        rect.getArea()
+        rect.get_area()
         for image in page.get_images()
         for rect in page.get_image_rects(image)  # type: ignore
     )
