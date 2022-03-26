@@ -230,7 +230,7 @@ class Text:
         """
         original_text = page.get_text()  # type: ignore
         if (
-            total_image_area(page) / page.bound().getArea()
+            total_image_area(page) / page.bound().get_area()
             < self.image_area_thresh
             and not len([a for a in original_text if a == 'ï¿½'])
             > self.max_unreadable
