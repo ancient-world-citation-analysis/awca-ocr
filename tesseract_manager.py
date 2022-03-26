@@ -256,7 +256,7 @@ class Text:
             self.texts.append(data_to_string(
                 metadata.corrected if 'corrected' in metadata.columns
                 else metadata.text
-            ))
+            ) if metadata is not None else "")
             self.mean_confidences.append(mean_conf(metadata))
             used_original_text = False
         self.languages.add_weight(language)
