@@ -1,14 +1,11 @@
 from typing import Sequence
-import gcld3
 from typing import Callable, Optional, List, Tuple, Dict
+from textprobability.classify import Classifier, default_classifier
 
 """This module contains language detection tools built on top of CLD3.
 These are convenience functions for special use cases that CLD3 does
 not explicitly address.
 """
-
-# FIXME: Do not feed URLs, emails, etc. into gcld3.
-DEFAULT_NNLI = gcld3.NNetLanguageIdentifier(1, 700)
 
 LinguisticUnit = str
 LangCode = str
@@ -21,8 +18,7 @@ LanguageAnnotator = Callable[
 def get_language_annotator(
     n_chars: Optional[int] = 100,
     window_size: Optional[int] = None,
-    nnli: gcld3.NNetLanguageIdentifier = DEFAULT_NNLI,
-    max_n_languages: int = 3
+    classifier: Classifier = default_classifier
 ) -> LanguageAnnotator:
     """Returns a LanguageAnnotator.
 
@@ -63,12 +59,6 @@ def get_language_annotator(
                 idx += 1
             return ' '.join(ret), idx
 
-    def get_weight(result: gcld3.Result) -> float:
-        """Returns the weight associated with a given language detection
-        result.
-        """
-        return result.probability * result.proportion
-
     def get_votes(
         votes: List[ResultSelection],
         s: List[LinguisticUnit],
@@ -86,13 +76,11 @@ def get_language_annotator(
                 start_idx <= idx < end_idx
                 for idx in contested_unit_indices
             ):
-                for result in nnli.FindTopNMostFreqLangs(
-                    window, max_n_languages
-                ):
+                for language, weight in classifier(window).items():
                     for idx in range(start_idx, end_idx):
-                        votes[idx][result.language] = (
-                            votes[idx].get(result.language, 0)
-                            + get_weight(result)
+                        votes[idx][language] = (
+                            votes[idx].get(language, 0)
+                            + weight
                         )
             start_idx = update_start_idx(start_idx, end_idx)
 
