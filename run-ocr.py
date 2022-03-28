@@ -25,7 +25,7 @@ for idx, pdf in enumerate(pdfs):
     if idx % 10 == int(args.i) and pdf not in processed_pdfs:
         print(idx, pdf)
         if not os.path.isfile(pdf):
-            print("WARNING: \"{pdf}\" does not exist.")
+            print(f"WARNING: \"{pdf}\" does not exist.")
             continue
         Text(pdf, f"../ocr-output/{idx}_{os.path.basename(pdf).split('.')[0]}").save_ocr()
         with open(f"processed_pdfs_list_{args.i}.txt", "a") as f:
